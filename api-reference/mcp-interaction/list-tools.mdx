@@ -1,6 +1,6 @@
 ---
 title: "List Tools"
-api: "POST /{tenant}/mcp"
+openapi: "POST /{tenant}/mcp"
 description: "List available tools from an MCP server using JSON-RPC 2.0 protocol. This method returns all tools that can be executed via the tools/call method."
 ---
 
@@ -118,6 +118,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ResponseField name="nextCursor" type="string">
       Cursor for next page (if more results available)
     </ResponseField>
+
   </Expandable>
 </ResponseField>
 

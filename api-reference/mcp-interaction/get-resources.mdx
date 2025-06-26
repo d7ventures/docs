@@ -1,6 +1,6 @@
 ---
 title: "Get Resources"
-api: "POST /{tenant}/mcp"
+openapi: "POST /{tenant}/mcp"
 description: "List available resources from an MCP server using JSON-RPC 2.0 protocol. Resources represent data or content that can be read or referenced."
 ---
 
@@ -122,6 +122,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ResponseField name="nextCursor" type="string">
       Cursor for next page (if more results available)
     </ResponseField>
+
   </Expandable>
 </ResponseField>
 

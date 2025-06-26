@@ -1,6 +1,6 @@
 ---
 title: "Get Prompts"
-api: "POST /{tenant}/mcp"
+openapi: "POST /{tenant}/mcp"
 description: "List available prompts from an MCP server using JSON-RPC 2.0 protocol. Prompts are pre-defined templates that can be used with AI systems."
 ---
 
@@ -118,6 +118,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ResponseField name="nextCursor" type="string">
       Cursor for next page (if more results available)
     </ResponseField>
+
   </Expandable>
 </ResponseField>
 

@@ -24,7 +24,7 @@
     }
   ],
   "paths": {
-    "/api/v1/mcp-servers": {
+    "/api/v1/mcp-servers/available": {
       "get": {
         "summary": "Get Available MCP Servers",
         "description": "Retrieve all available MCP server types that can be instantiated.",
@@ -50,6 +50,164 @@
                     "total_count": {
                       "type": "integer",
                       "example": 5
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mcp-servers": {
+      "post": {
+        "summary": "Create MCP Server Instance",
+        "description": "Create a new MCP server connection instance.",
+        "operationId": "createMcpServerInstance",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMcpConnectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "MCP server connection created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "MCP server connection created successfully"
+                    },
+                    "connection": {
+                      "$ref": "#/components/schemas/McpConnection"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/mcp-servers/{server_id}": {
+      "get": {
+        "summary": "Get MCP Server Instance",
+        "description": "Get details of an MCP server connection instance.",
+        "operationId": "getMcpServerInstance",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "srv_123abc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server connection details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Connection retrieved successfully"
+                    },
+                    "connection": {
+                      "$ref": "#/components/schemas/McpConnection"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update MCP Server Instance",
+        "description": "Update an existing MCP server connection instance.",
+        "operationId": "updateMcpServerInstance",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "srv_123abc"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMcpConnectionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP server connection updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Connection updated successfully"
+                    },
+                    "connection": {
+                      "$ref": "#/components/schemas/McpConnection"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete MCP Server Instance",
+        "description": "Delete an MCP server connection instance.",
+        "operationId": "deleteMcpServerInstance",
+        "parameters": [
+          {
+            "name": "server_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "srv_123abc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server connection deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Connection deleted successfully"
                     }
                   }
                 }
@@ -366,6 +524,139 @@
           },
           "202": {
             "description": "Notification accepted (for methods starting with 'notifications/')"
+          }
+        }
+      }
+    },
+    "/plants": {
+      "get": {
+        "summary": "Get all plants",
+        "description": "Returns a list of plants in the garden",
+        "operationId": "getPlants",
+        "responses": {
+          "200": {
+            "description": "A list of plants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plants": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Plant"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add a new plant",
+        "description": "Creates a new plant in the garden",
+        "operationId": "createPlant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Plant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Plant created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plant"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/plants/{id}": {
+      "get": {
+        "summary": "Get a plant by ID",
+        "description": "Returns a single plant",
+        "operationId": "getPlantById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A single plant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Plant"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a plant",
+        "description": "Removes a plant from the garden",
+        "operationId": "deletePlant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Plant deleted successfully"
+          }
+        }
+      }
+    },
+    "/webhooks": {
+      "post": {
+        "summary": "Handle webhook",
+        "description": "Receives and processes webhook notifications",
+        "operationId": "handleWebhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "event": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed successfully"
           }
         }
       }
@@ -1231,6 +1522,31 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Plant": {
+        "type": "object",
+        "required": [
+          "name",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Aloe Vera"
+          },
+          "type": {
+            "type": "string",
+            "example": "succulent"
+          },
+          "wateringSchedule": {
+            "type": "string",
+            "example": "weekly"
           }
         }
       }

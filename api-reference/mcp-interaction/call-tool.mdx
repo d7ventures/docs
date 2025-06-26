@@ -1,6 +1,6 @@
 ---
 title: "Call Tool"
-api: "POST /{tenant}/mcp"
+openapi: "POST /{tenant}/mcp"
 description: "Execute a specific tool using JSON-RPC 2.0 protocol. This method calls a tool by name with provided arguments and returns the execution result."
 ---
 
@@ -122,6 +122,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ResponseField name="isError" type="boolean">
       Whether the tool execution resulted in an error
     </ResponseField>
+
   </Expandable>
 </ResponseField>
 
@@ -139,6 +140,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ResponseField name="data" type="object">
       Additional error details
     </ResponseField>
+
   </Expandable>
 </ResponseField>
 
