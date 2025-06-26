@@ -3,18 +3,7 @@ title: Kambrium Documentation
 description: "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools"
 ---
 
-<img
-  className="block dark:hidden"
-  src="/images/hero-light.png"
-  alt="Kambrium MCP Platform"
-/>
-<img
-  className="hidden dark:block"
-  src="/images/hero-dark.png"
-  alt="Kambrium MCP Platform"
-/>
-
-# Welcome to Kambrium
+# Kambrium Documentation
 
 **Kambrium** is an AI-native platform that connects AI applications to SaaS tools through the **Model Context Protocol (MCP)**. Our platform enables seamless integration between AI models and external services, allowing AI applications to access real-time data and perform actions across your business tools.
 
@@ -27,85 +16,79 @@ The **Model Context Protocol** is a standardized way for AI applications to inte
 - **⚡ Real-time Data**: Live access to your business data and tools
 - **🛠️ Extensible Architecture**: Build custom integrations and workflows
 
-## Quick Start
+## Documentation Overview
 
-Get up and running with Kambrium in minutes:
+This documentation is organized to get you productive quickly, whether you're integrating for the first time or building advanced workflows:
 
 <CardGroup cols={2}>
+  <Card title="🚀 Get Started" href="/quickstart">
+    **New to Kambrium?** Follow our quickstart guide to connect your first AI
+    application in under 10 minutes. Includes authentication setup, MCP server
+    creation, and sample code.
+  </Card>
+  <Card title="🛡️ Authentication" href="/authentication/introduction">
+    **Set up secure access** with OAuth 2.1, API tokens, and SaaS integrations.
+    Essential for both development and production environments.
+  </Card>
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card title="🌐 MCP Protocol" href="/api-reference/mcp-protocol/overview">
+    **Understand the core protocol** that powers Kambrium. Learn about sessions,
+    capabilities, and the three key primitives: Tools, Resources, and Prompts.
+  </Card>
+  <Card title="💻 MCP Methods" href="/api-reference/mcp-methods/tools-list">
+    **API reference for MCP methods** including tools/list, tools/call,
+    resources/list, and resources/read. Complete with examples and error codes.
+  </Card>
+</CardGroup>
+
+<CardGroup cols={1}>
+  <Card title="🖥️ Management API" href="/api-reference/mcp-servers/available">
+    **REST APIs for platform management** - create MCP servers, manage
+    configurations, and monitor your integrations. Perfect for building admin
+    interfaces and automation.
+  </Card>
+</CardGroup>
+
+## Popular Starting Points
+
+Most developers begin with one of these paths:
+
+<CardGroup cols={3}>
+  <Card title="First Integration" icon="rocket" href="/quickstart">
+    Complete end-to-end setup guide
+  </Card>
   <Card
     title="Authentication Setup"
     icon="shield-check"
     href="/authentication/introduction"
   >
-    Configure OAuth 2.1 authentication and manage API tokens
+    Configure OAuth and API tokens
   </Card>
   <Card
-    title="MCP Protocol Guide"
-    icon="network-wired"
-    href="/api-reference/mcp-protocol/overview"
-  >
-    Understand the MCP protocol and session management
-  </Card>
-</CardGroup>
-
-## Core Features
-
-Explore Kambrium's powerful capabilities:
-
-<CardGroup cols={2}>
-  <Card
-    title="MCP Server Management"
-    icon="server"
+    title="Available Integrations"
+    icon="plug"
     href="/api-reference/mcp-servers/available"
   >
-    Create, configure, and manage MCP server instances
-  </Card>
-  <Card
-    title="Tools & Resources"
-    icon="code"
-    href="/api-reference/mcp-methods/tools-list"
-  >
-    Access AI-callable tools and contextual resources
-  </Card>
-  <Card
-    title="SaaS Integrations"
-    icon="plug"
-    href="/authentication/integrations"
-  >
-    Connect to popular business tools and APIs
-  </Card>
-  <Card
-    title="Developer APIs"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Comprehensive REST APIs for custom integrations
+    Browse supported SaaS tools
   </Card>
 </CardGroup>
 
-## Use Cases
-
-**Kambrium enables powerful AI workflows:**
-
-- **📊 Business Intelligence**: AI agents that query your CRM, analytics, and reporting tools
-- **🤖 AI Assistants**: Smart assistants with access to your company's data and systems
-- **⚙️ Workflow Automation**: AI-driven automation across multiple SaaS platforms
-- **📈 Data Analysis**: Real-time analysis of data from multiple business sources
-
-## Next Steps
+## Need Help?
 
 <CardGroup cols={3}>
-  <Card title="Get Started" icon="rocket" href="/quickstart">
-    Follow our quickstart guide
-  </Card>
-  <Card title="View Examples" icon="lightbulb" href="/development">
-    See implementation examples
-  </Card>
   <Card
-    title="Join Community"
+    title="Community Support"
     icon="discord"
     href="https://discord.gg/kambrium"
   >
-    Connect with other developers
+    Join our Discord for real-time help from the community and team
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Complete technical reference with all endpoints and examples
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/kambrium">
+    Browse code examples and contribute to open source projects
   </Card>
 </CardGroup>

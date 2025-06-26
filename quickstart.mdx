@@ -1,203 +1,591 @@
 ---
 title: "Quickstart"
-description: "Get started with Kambrium MCP platform in under 5 minutes"
+description: "Get started with Kambrium MCP platform in under 10 minutes"
 ---
 
 # Quickstart Guide
 
-Welcome to Kambrium! This guide will help you get started with our MCP (Model Context Protocol) platform and connect your first AI application to SaaS tools.
+Welcome to Kambrium! This guide will get you from zero to your first working MCP integration in **under 10 minutes**. By the end, you'll have an AI application connected to a SaaS tool through our MCP protocol.
+
+## What You'll Build
+
+You'll create a simple AI assistant that can:
+
+- Connect to your Pipedrive CRM
+- List and search deals
+- Create new contacts
+- All through natural language commands
 
 ## Prerequisites
 
-Before you begin, make sure you have:
+Before you begin, ensure you have:
 
-- A Kambrium account (sign up at [app.kambrium.com](https://app.kambrium.com))
-- API credentials for the SaaS tools you want to connect
-- Basic understanding of REST APIs and OAuth 2.1
+- ✅ A Kambrium account ([sign up free](https://app.kambrium.com))
+- ✅ Python 3.7+ or Node.js 16+ installed
+- ✅ A Pipedrive account with API access
+- ✅ 10 minutes to spare
 
-## Step 1: Authentication Setup
+<Note>
+  **Don't have Pipedrive?** No problem! You can use our demo credentials to try
+  the integration, or substitute with any of our [supported
+  integrations](/api-reference/mcp-servers/available).
+</Note>
 
-First, set up authentication to access Kambrium's APIs:
+## Step 1: Get Your API Token
 
-<AccordionGroup>
-  <Accordion icon="key" title="Get Your API Token">
-    1. Log in to your [Kambrium Dashboard](https://app.kambrium.com) 2. Navigate
-    to **Settings** → **API Tokens** 3. Click **Generate New Token** 4. Copy and
-    securely store your Personal Access Token (PAT)
-    <Note>
-      Keep your API token secure and never share it publicly. You'll use this
-      token to authenticate all API requests.
-    </Note>
-  </Accordion>
+First, grab your Kambrium API token:
 
-  <Accordion icon="shield-check" title="Configure OAuth 2.1">
-    For production applications, set up OAuth 2.1 authentication: 1. In your
-    dashboard, go to **OAuth Applications** 2. Click **Create New Application**
-    3. Configure your redirect URIs and scopes 4. Note your `client_id` and
-    `client_secret` See our [OAuth 2.1 guide](/authentication/management-api)
-    for detailed setup instructions.
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Access Dashboard">
+    Log in to your [Kambrium Dashboard](https://app.kambrium.com)
+  </Step>
+  <Step title="Generate Token">
+    Navigate to **Settings** → **API Tokens** and click **Generate New Token**
+  </Step>
+  <Step title="Copy Token">
+    Copy your Personal Access Token (PAT) - you'll need it for all API calls
+  </Step>
+</Steps>
 
-## Step 2: Create Your First MCP Server
+<Warning>
+  Keep your API token secure! Never commit it to version control or share it
+  publicly.
+</Warning>
 
-Create an MCP server instance to connect to your SaaS tools:
+## Step 2: Create Your MCP Server
 
-<AccordionGroup>
-  <Accordion icon="server" title="Create MCP Server Instance">
-    Use the Management API to create your first MCP server:
-    
-    ```bash
-    curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
-      -H "Authorization: Bearer YOUR_API_TOKEN" \
-      -H "Content-Type: application/json" \
-      -d '{
+Now let's create an MCP server that connects to Pipedrive:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "server_type": "pipedrive",
+    "name": "my-pipedrive-server",
+    "configuration": {
+      "api_token": "YOUR_PIPEDRIVE_API_TOKEN",
+      "company_domain": "your-company"
+    }
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.kambrium.com/api/v1/mcp-servers",
+    headers={
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "Content-Type": "application/json"
+    },
+    json={
         "server_type": "pipedrive",
+        "name": "my-pipedrive-server",
         "configuration": {
-          "api_token": "YOUR_PIPEDRIVE_TOKEN"
+            "api_token": "YOUR_PIPEDRIVE_API_TOKEN",
+            "company_domain": "your-company"
         }
-      }'
-    ```
-    
-    This creates a Pipedrive MCP server that your AI applications can connect to.
-  </Accordion>
-  
-  <Accordion icon="list" title="List Available Tools">
-    Once your server is created, list the available tools:
-    
-    ```bash
-    curl -X GET https://api.kambrium.com/api/v1/mcp-servers/pipedrive/tools \
-      -H "Authorization: Bearer YOUR_API_TOKEN"
-    ```
-    
-    You'll see tools like `get_deals`, `create_contact`, `search_organizations`, etc.
-  </Accordion>
-</AccordionGroup>
+    }
+)
 
-## Step 3: Connect Your AI Application
+server_data = response.json()
+print(f"Server created: {server_data['server_id']}")
+```
 
-Now connect your AI application to use the MCP server:
+```javascript Node.js
+const response = await fetch("https://api.kambrium.com/api/v1/mcp-servers", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    server_type: "pipedrive",
+    name: "my-pipedrive-server",
+    configuration: {
+      api_token: "YOUR_PIPEDRIVE_API_TOKEN",
+      company_domain: "your-company",
+    },
+  }),
+});
 
-<AccordionGroup>
-  <Accordion icon="plug" title="Initialize MCP Session">
-    Start an MCP protocol session:
-    
-    ```python
-    import requests
-    
-    # Initialize MCP session
-    response = requests.post(
-        "https://mcp.kambrium.com/initialize",
-        headers={
-            "Authorization": "Bearer YOUR_API_TOKEN",
+const serverData = await response.json();
+console.log(`Server created: ${serverData.server_id}`);
+```
+
+</CodeGroup>
+
+**Expected Response:**
+
+```json
+{
+  "server_id": "srv_abc123",
+  "status": "active",
+  "server_type": "pipedrive",
+  "name": "my-pipedrive-server",
+  "created_at": "2025-01-26T10:30:00Z"
+}
+```
+
+## Step 3: Initialize MCP Session
+
+Start an MCP protocol session to begin interacting with your server:
+
+<CodeGroup>
+```python Python
+import requests
+import json
+
+# Initialize MCP session
+
+session_response = requests.post(
+"https://mcp.kambrium.com/initialize",
+headers={
+"Authorization": "Bearer YOUR_API_TOKEN",
+"Content-Type": "application/json"
+},
+json={
+"protocolVersion": "2025-03-26",
+"capabilities": {
+"tools": {},
+"resources": {}
+},
+"clientInfo": {
+"name": "my-ai-assistant",
+"version": "1.0.0"
+}
+}
+)
+
+session_data = session_response.json()
+session_id = session_data["sessionId"]
+print(f"Session started: {session_id}")
+
+````
+
+```javascript Node.js
+// Initialize MCP session
+const sessionResponse = await fetch('https://mcp.kambrium.com/initialize', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    protocolVersion: '2025-03-26',
+    capabilities: {
+      tools: {},
+      resources: {}
+    },
+    clientInfo: {
+      name: 'my-ai-assistant',
+      version: '1.0.0'
+    }
+  })
+});
+
+const sessionData = await sessionResponse.json();
+const sessionId = sessionData.sessionId;
+console.log(`Session started: ${sessionId}`);
+````
+
+```bash cURL
+curl -X POST https://mcp.kambrium.com/initialize \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "protocolVersion": "2025-03-26",
+    "capabilities": {
+      "tools": {},
+      "resources": {}
+    },
+    "clientInfo": {
+      "name": "my-ai-assistant",
+      "version": "1.0.0"
+    }
+  }'
+```
+
+</CodeGroup>
+
+## Step 4: Discover Available Tools
+
+List the tools available from your Pipedrive MCP server:
+
+<CodeGroup>
+```python Python
+# List available tools
+tools_response = requests.post(
+    "https://mcp.kambrium.com/tools/list",
+    headers={
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "X-Session-ID": session_id,
+        "Content-Type": "application/json"
+    },
+    json={}
+)
+
+tools_data = tools_response.json()
+print("Available tools:")
+for tool in tools_data["tools"]:
+print(f"- {tool['name']}: {tool['description']}")
+
+````
+
+```javascript Node.js
+// List available tools
+const toolsResponse = await fetch('https://mcp.kambrium.com/tools/list', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_TOKEN',
+    'X-Session-ID': sessionId,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({})
+});
+
+const toolsData = await toolsResponse.json();
+console.log('Available tools:');
+toolsData.tools.forEach(tool => {
+  console.log(`- ${tool.name}: ${tool.description}`);
+});
+````
+
+</CodeGroup>
+
+**Expected Output:**
+
+```
+Available tools:
+- get_deals: Retrieve deals from Pipedrive
+- create_contact: Create a new contact in Pipedrive
+- search_organizations: Search for organizations
+- get_activities: Retrieve activities and tasks
+```
+
+## Step 5: Call Your First Tool
+
+Let's retrieve some deals from Pipedrive:
+
+<CodeGroup>
+```python Python
+# Call the get_deals tool
+result = requests.post(
+    "https://mcp.kambrium.com/tools/call",
+    headers={
+        "Authorization": "Bearer YOUR_API_TOKEN",
+        "X-Session-ID": session_id,
+        "Content-Type": "application/json"
+    },
+    json={
+        "name": "get_deals",
+        "arguments": {
+            "status": "open",
+            "limit": 5
+        }
+    }
+)
+
+deals_data = result.json()
+print(f"Found {len(deals_data['content'])} open deals:")
+for deal in deals_data['content'][:3]: # Show first 3
+print(f"- {deal['title']}: ${deal['value']}")
+
+````
+
+```javascript Node.js
+// Call the get_deals tool
+const result = await fetch('https://mcp.kambrium.com/tools/call', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_TOKEN',
+    'X-Session-ID': sessionId,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'get_deals',
+    arguments: {
+      status: 'open',
+      limit: 5
+    }
+  })
+});
+
+const dealsData = await result.json();
+console.log(`Found ${dealsData.content.length} open deals:`);
+dealsData.content.slice(0, 3).forEach(deal => {
+  console.log(`- ${deal.title}: $${deal.value}`);
+});
+````
+
+</CodeGroup>
+
+**Expected Output:**
+
+```
+Found 5 open deals:
+- Enterprise Software License: $25000
+- Marketing Campaign Setup: $8500
+- Website Redesign Project: $12000
+```
+
+## Step 6: Create a Complete Integration
+
+Here's a complete example that puts it all together:
+
+<CodeGroup>
+```python Complete Python Example
+import requests
+import json
+
+class KambriumMCPClient:
+def **init**(self, api_token):
+self.api_token = api_token
+self.session_id = None
+self.base_url = "https://mcp.kambrium.com"
+
+    def _headers(self):
+        headers = {
+            "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json"
-        },
-        json={
-            "protocolVersion": "2025-03-26",
-            "capabilities": {
-                "tools": {},
-                "resources": {}
+        }
+        if self.session_id:
+            headers["X-Session-ID"] = self.session_id
+        return headers
+
+    def initialize_session(self):
+        """Initialize MCP session"""
+        response = requests.post(
+            f"{self.base_url}/initialize",
+            headers=self._headers(),
+            json={
+                "protocolVersion": "2025-03-26",
+                "capabilities": {"tools": {}, "resources": {}},
+                "clientInfo": {"name": "ai-assistant", "version": "1.0.0"}
             }
-        }
-    )
-    
-    session_id = response.json()["sessionId"]
-    ```
-  </Accordion>
-  
-  <Accordion icon="wrench" title="Call MCP Tools">
-    Use the MCP protocol to call tools from your AI application:
-    
-    ```python
-    # List available tools
-    tools_response = requests.post(
-        "https://mcp.kambrium.com/tools/list",
-        headers={
-            "Authorization": "Bearer YOUR_API_TOKEN",
-            "X-Session-ID": session_id
-        }
-    )
-    
-    # Call a specific tool
-    result = requests.post(
-        "https://mcp.kambrium.com/tools/call",
-        headers={
-            "Authorization": "Bearer YOUR_API_TOKEN",
-            "X-Session-ID": session_id
-        },
-        json={
-            "name": "get_deals",
-            "arguments": {
-                "status": "open",
-                "limit": 10
-            }
-        }
-    )
-    
-    deals_data = result.json()
-    ```
-  </Accordion>
-</AccordionGroup>
+        )
+        self.session_id = response.json()["sessionId"]
+        return self.session_id
 
-## Step 4: Test Your Integration
+    def list_tools(self):
+        """List available tools"""
+        response = requests.post(
+            f"{self.base_url}/tools/list",
+            headers=self._headers(),
+            json={}
+        )
+        return response.json()["tools"]
 
-Verify everything is working correctly:
+    def call_tool(self, name, arguments=None):
+        """Call a specific tool"""
+        response = requests.post(
+            f"{self.base_url}/tools/call",
+            headers=self._headers(),
+            json={"name": name, "arguments": arguments or {}}
+        )
+        return response.json()
 
-<CardGroup cols={2}>
-  <Card
-    title="Test API Endpoints"
-    icon="flask"
-    href="/api-reference/mcp-methods/tools-call"
-  >
-    Use our API reference to test different endpoints
-  </Card>
+# Usage example
 
-  <Card
-    title="View Server Logs"
-    icon="file-lines"
-    href="https://app.kambrium.com/logs"
-  >
-    Monitor your MCP server activity and debug issues
-  </Card>
-</CardGroup>
+def main(): # Initialize client
+client = KambriumMCPClient("YOUR_API_TOKEN")
+
+    # Start session
+    session_id = client.initialize_session()
+    print(f"✅ Session started: {session_id}")
+
+    # Discover tools
+    tools = client.list_tools()
+    print(f"✅ Found {len(tools)} available tools")
+
+    # Get deals
+    deals = client.call_tool("get_deals", {"status": "open", "limit": 10})
+    print(f"✅ Retrieved {len(deals['content'])} deals")
+
+    # Create a contact
+    new_contact = client.call_tool("create_contact", {
+        "name": "John Doe",
+        "email": "john@example.com",
+        "phone": "+1-555-0123"
+    })
+    print(f"✅ Created contact: {new_contact['content']['name']}")
+
+if **name** == "**main**":
+main()
+
+````
+
+```javascript Complete Node.js Example
+class KambriumMCPClient {
+  constructor(apiToken) {
+    this.apiToken = apiToken;
+    this.sessionId = null;
+    this.baseUrl = 'https://mcp.kambrium.com';
+  }
+
+  _headers() {
+    const headers = {
+      'Authorization': `Bearer ${this.apiToken}`,
+      'Content-Type': 'application/json'
+    };
+    if (this.sessionId) {
+      headers['X-Session-ID'] = this.sessionId;
+    }
+    return headers;
+  }
+
+  async initializeSession() {
+    const response = await fetch(`${this.baseUrl}/initialize`, {
+      method: 'POST',
+      headers: this._headers(),
+      body: JSON.stringify({
+        protocolVersion: '2025-03-26',
+        capabilities: { tools: {}, resources: {} },
+        clientInfo: { name: 'ai-assistant', version: '1.0.0' }
+      })
+    });
+    const data = await response.json();
+    this.sessionId = data.sessionId;
+    return this.sessionId;
+  }
+
+  async listTools() {
+    const response = await fetch(`${this.baseUrl}/tools/list`, {
+      method: 'POST',
+      headers: this._headers(),
+      body: JSON.stringify({})
+    });
+    const data = await response.json();
+    return data.tools;
+  }
+
+  async callTool(name, arguments = {}) {
+    const response = await fetch(`${this.baseUrl}/tools/call`, {
+      method: 'POST',
+      headers: this._headers(),
+      body: JSON.stringify({ name, arguments })
+    });
+    return await response.json();
+  }
+}
+
+// Usage example
+async function main() {
+  // Initialize client
+  const client = new KambriumMCPClient('YOUR_API_TOKEN');
+
+  // Start session
+  const sessionId = await client.initializeSession();
+  console.log(`✅ Session started: ${sessionId}`);
+
+  // Discover tools
+  const tools = await client.listTools();
+  console.log(`✅ Found ${tools.length} available tools`);
+
+  // Get deals
+  const deals = await client.callTool('get_deals', { status: 'open', limit: 10 });
+  console.log(`✅ Retrieved ${deals.content.length} deals`);
+
+  // Create a contact
+  const newContact = await client.callTool('create_contact', {
+    name: 'John Doe',
+    email: 'john@example.com',
+    phone: '+1-555-0123'
+  });
+  console.log(`✅ Created contact: ${newContact.content.name}`);
+}
+
+main().catch(console.error);
+````
+
+</CodeGroup>
+
+## Test Your Integration
+
+Run your code and you should see output like:
+
+```
+✅ Session started: sess_abc123
+✅ Found 8 available tools
+✅ Retrieved 12 deals
+✅ Created contact: John Doe
+```
 
 ## Next Steps
 
-<CardGroup cols={3}>
-  <Card
-    title="Explore MCP Protocol"
-    icon="network-wired"
-    href="/api-reference/mcp-protocol/overview"
-  >
-    Learn about MCP protocol features
-  </Card>
+🎉 **Congratulations!** You've successfully connected an AI application to Pipedrive through Kambrium's MCP protocol.
 
+Here's what to explore next:
+
+<CardGroup cols={2}>
   <Card
     title="Add More Integrations"
     icon="plus"
     href="/api-reference/mcp-servers/available"
   >
-    Connect additional SaaS tools
+    Connect to Slack, HubSpot, Salesforce, and 20+ other tools
   </Card>
 
+{" "}
+<Card
+  title="Production Setup"
+  icon="rocket"
+  href="/authentication/management-api"
+>
+  Configure OAuth 2.1 for production deployments
+</Card>
+
+{" "}
+<Card
+  title="MCP Protocol Deep Dive"
+  icon="network-wired"
+  href="/api-reference/mcp-protocol/overview"
+>
+  Learn about resources, prompts, and advanced features
+</Card>
+
   <Card
-    title="Production Setup"
-    icon="rocket"
-    href="/authentication/management-api"
+    title="Error Handling"
+    icon="shield-exclamation"
+    href="/api-reference/mcp-protocol/error-handling"
   >
-    Configure OAuth for production
+    Implement robust error handling and retry logic
   </Card>
 </CardGroup>
 
-## Need Help?
+## Troubleshooting
 
-- 📖 **Documentation**: Browse our complete [API reference](/api-reference/introduction)
-- 💬 **Community**: Join our [Discord community](https://discord.gg/kambrium)
-- 🐛 **Issues**: Report bugs or request features on GitHub
+<AccordionGroup>
+  <Accordion title="Authentication Error (401)">
+    - Double-check your API token is correct
+    - Ensure the token hasn't expired
+    - Verify you're using the `Bearer` prefix in the Authorization header
+  </Accordion>
+
+{" "}
+<Accordion title="Server Creation Failed">
+  - Verify your SaaS tool credentials are valid - Check that the `server_type`
+  is supported - Ensure your account has sufficient permissions
+</Accordion>
+
+{" "}
+<Accordion title="Tool Call Failed">
+  - Confirm your MCP session is active - Check that the tool name exists in the
+  tools list - Validate the arguments match the tool's expected schema
+</Accordion>
+
+  <Accordion title="Need More Help?">
+    - 💬 Join our [Discord community](https://discord.gg/kambrium)
+    - 📖 Browse the [complete API reference](/api-reference/introduction)
+    - 🐛 Report issues on [GitHub](https://github.com/kambrium)
+  </Accordion>
+</AccordionGroup>
 
 ---
 
 <Note>
-  **Pro Tip**: Start with a simple integration like Pipedrive or Slack to get
-  familiar with the MCP protocol, then expand to more complex workflows.
+  **Pro Tip**: Use our [Postman collection](https://postman.kambrium.com) to
+  test API endpoints interactively before writing code.
 </Note>
