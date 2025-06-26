@@ -22,7 +22,7 @@
       "dark": "#111827"
     }
   },
-  "favicon": "/favicon.png",
+  "favicon": "/favicon.ico",
   "seo": {
     "indexHiddenPages": false
   },
