@@ -39,6 +39,7 @@
     "groups": [
       {
         "group": "Get Started",
+        "icon": "rocket",
         "pages": [
           "index",
           "quickstart",
@@ -46,13 +47,8 @@
         ]
       },
       {
-        "group": "Integration Guides",
-        "pages": [
-          "guides/mcp-setup"
-        ]
-      },
-      {
         "group": "Authentication",
+        "icon": "shield-check",
         "pages": [
           "authentication/introduction",
           "authentication/management-api",
@@ -61,13 +57,17 @@
         ]
       },
       {
-        "group": "API Documentation",
+        "group": "MCP Protocol",
+        "icon": "network-wired",
         "pages": [
-          "api-reference/introduction"
+          "api-reference/mcp-protocol/overview",
+          "api-reference/mcp-protocol/session-management",
+          "api-reference/mcp-protocol/error-handling"
         ]
       },
       {
-        "group": "Manage MCP Servers",
+        "group": "Management API",
+        "icon": "server",
         "pages": [
           "api-reference/mcp-servers/available",
           "api-reference/mcp-servers/tools",
@@ -79,6 +79,7 @@
       },
       {
         "group": "MCP Methods",
+        "icon": "code",
         "pages": [
           "api-reference/mcp-methods/tools-list",
           "api-reference/mcp-methods/tools-call",
@@ -87,14 +88,6 @@
           "api-reference/mcp-methods/prompts-list",
           "api-reference/mcp-methods/prompts-get",
           "api-reference/mcp-methods/utilities"
-        ]
-      },
-      {
-        "group": "MCP Protocol",
-        "pages": [
-          "api-reference/mcp-protocol/overview",
-          "api-reference/mcp-protocol/session-management",
-          "api-reference/mcp-protocol/error-handling"
         ]
       }
     ]
