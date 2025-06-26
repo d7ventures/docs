@@ -22,7 +22,7 @@
       "dark": "#111827"
     }
   },
-  "favicon": "/favicon.ico",
+  "favicon": "/kambrium_favicon.png",
   "seo": {
     "indexHiddenPages": false
   },
@@ -42,8 +42,7 @@
         "icon": "rocket",
         "pages": [
           "index",
-          "quickstart",
-          "development"
+          "quickstart"
         ]
       },
       {
