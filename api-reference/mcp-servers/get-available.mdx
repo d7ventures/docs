@@ -1,0 +1,27 @@
+---
+title: "Get Available MCP Servers"
+openapi: "GET /api/v1/mcp-servers/available"
+---
+
+Get a list of all available MCP server integrations that can be connected to.
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "name": "pipedrive",
+      "description": "CRM integration for managing deals, contacts, and activities",
+      "number_of_tools": 277
+    },
+    {
+      "name": "salesforce",
+      "description": "Enterprise CRM platform integration",
+      "number_of_tools": 156
+    }
+  ],
+  "message": "Found 2 available MCP server integrations"
+}
+```

@@ -1,0 +1,54 @@
+---
+title: "Get MCP Server Tools"
+openapi: "GET /api/v1/mcp-servers/{server_id}/tools"
+---
+
+Retrieve all available tools for a specific MCP server connection. Returns tools in MCP (Model Context Protocol) format.
+
+**Parameters:**
+
+- `server_id` (path, required): ID of the MCP server connection
+- `limit` (query, optional): Maximum number of tools to return (default: 50)
+- `offset` (query, optional): Number of tools to skip for pagination (default: 0)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "tools": [
+      {
+        "name": "getPersons",
+        "description": "Returns all persons from the CRM system",
+        "inputSchema": {
+          "type": "object",
+          "title": "GetPersons Input",
+          "description": "Input schema for getPersons endpoint",
+          "properties": {
+            "limit": {
+              "type": "string",
+              "title": "Limit",
+              "description": "Items shown per page"
+            },
+            "start": {
+              "type": "string",
+              "title": "Start",
+              "description": "Pagination start"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "annotations": {}
+      }
+    ],
+    "total_count": 277,
+    "mcp_server_id": 1,
+    "limit": 50,
+    "offset": 0,
+    "has_more": true
+  },
+  "message": "Found 277 tools for MCP server connection (showing 50 tools, page 1)"
+}
+```

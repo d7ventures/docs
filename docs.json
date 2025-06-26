@@ -93,6 +93,18 @@
               "api-reference/endpoint/delete",
               "api-reference/endpoint/webhook"
             ]
+          },
+          {
+            "group": "Manage MCP Servers",
+            "pages": [
+              "api-reference/mcp-servers/get-available",
+              "api-reference/mcp-servers/list-connections",
+              "api-reference/mcp-servers/create-connection",
+              "api-reference/mcp-servers/get-connection",
+              "api-reference/mcp-servers/update-connection",
+              "api-reference/mcp-servers/delete-connection",
+              "api-reference/mcp-servers/get-tools"
+            ]
           }
         ]
       }

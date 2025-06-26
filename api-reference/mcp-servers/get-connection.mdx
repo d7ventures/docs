@@ -1,0 +1,35 @@
+---
+title: "Get MCP Server Connection"
+openapi: "GET /api/v1/mcp-servers/{server_id}"
+---
+
+Get detailed information about a specific MCP server connection.
+
+**Parameters:**
+
+- `server_id` (path, required): ID of the MCP server connection
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 172,
+    "mcp_server_id": 1,
+    "mcp_server_name": "Pipedrive MCP Server",
+    "mcp_server_description": "CRM integration for managing deals, contacts, and activities",
+    "company_name": "Acme Corp",
+    "api_key_verification_status": "verified",
+    "oauth2_client_id": "3qonqss9be528iitnmsd58tmac",
+    "mcp_server_access_type_name": "Write Access",
+    "mcp_server_access_status_name": "Active",
+    "agent_enabled": true,
+    "disabled_tools": [],
+    "last_used": "2024-01-20T14:22:00Z",
+    "usage_count": 45,
+    "created_at": "2024-01-15T10:30:00Z"
+  },
+  "message": "MCP server details retrieved successfully"
+}
+```
