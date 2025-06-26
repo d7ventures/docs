@@ -35,68 +35,70 @@
     "twitter:title": "Kambrium Documentation",
     "twitter:description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools"
   },
-  "navigation": [
-    {
-      "group": "Get Started",
-      "pages": [
-        "index",
-        "quickstart",
-        "development"
-      ]
-    },
-    {
-      "group": "Integration Guides",
-      "pages": [
-        "guides/mcp-setup"
-      ]
-    },
-    {
-      "group": "Authentication",
-      "pages": [
-        "authentication/introduction",
-        "authentication/management-api",
-        "authentication/mcp-server",
-        "authentication/integrations"
-      ]
-    },
-    {
-      "group": "API Documentation",
-      "pages": [
-        "api-reference/introduction"
-      ]
-    },
-    {
-      "group": "Manage MCP Servers",
-      "pages": [
-        "api-reference/mcp-servers/available",
-        "api-reference/mcp-servers/tools",
-        "api-reference/mcp-servers/create",
-        "api-reference/mcp-servers/get",
-        "api-reference/mcp-servers/update",
-        "api-reference/mcp-servers/delete"
-      ]
-    },
-    {
-      "group": "MCP Methods",
-      "pages": [
-        "api-reference/mcp-methods/tools-list",
-        "api-reference/mcp-methods/tools-call",
-        "api-reference/mcp-methods/resources-list",
-        "api-reference/mcp-methods/resources-read",
-        "api-reference/mcp-methods/prompts-list",
-        "api-reference/mcp-methods/prompts-get",
-        "api-reference/mcp-methods/utilities"
-      ]
-    },
-    {
-      "group": "MCP Protocol",
-      "pages": [
-        "api-reference/mcp-protocol/overview",
-        "api-reference/mcp-protocol/session-management",
-        "api-reference/mcp-protocol/error-handling"
-      ]
-    }
-  ],
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "index",
+          "quickstart",
+          "development"
+        ]
+      },
+      {
+        "group": "Integration Guides",
+        "pages": [
+          "guides/mcp-setup"
+        ]
+      },
+      {
+        "group": "Authentication",
+        "pages": [
+          "authentication/introduction",
+          "authentication/management-api",
+          "authentication/mcp-server",
+          "authentication/integrations"
+        ]
+      },
+      {
+        "group": "API Documentation",
+        "pages": [
+          "api-reference/introduction"
+        ]
+      },
+      {
+        "group": "Manage MCP Servers",
+        "pages": [
+          "api-reference/mcp-servers/available",
+          "api-reference/mcp-servers/tools",
+          "api-reference/mcp-servers/create",
+          "api-reference/mcp-servers/get",
+          "api-reference/mcp-servers/update",
+          "api-reference/mcp-servers/delete"
+        ]
+      },
+      {
+        "group": "MCP Methods",
+        "pages": [
+          "api-reference/mcp-methods/tools-list",
+          "api-reference/mcp-methods/tools-call",
+          "api-reference/mcp-methods/resources-list",
+          "api-reference/mcp-methods/resources-read",
+          "api-reference/mcp-methods/prompts-list",
+          "api-reference/mcp-methods/prompts-get",
+          "api-reference/mcp-methods/utilities"
+        ]
+      },
+      {
+        "group": "MCP Protocol",
+        "pages": [
+          "api-reference/mcp-protocol/overview",
+          "api-reference/mcp-protocol/session-management",
+          "api-reference/mcp-protocol/error-handling"
+        ]
+      }
+    ]
+  },
   "anchors": [
     {
       "name": "Dashboard",
