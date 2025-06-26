@@ -14,29 +14,9 @@ MCP provides a **unified interface** for AI agents to:
 - Use pre-built prompts and templates
 - Maintain secure, authenticated sessions
 
-## Why MCP?
+## Core Architecture
 
-### **The Problem**
-
-Before MCP, each AI system needed custom integrations for every external service:
-
-- **Fragmented APIs** - Different formats for every service
-- **Security complexity** - Multiple authentication methods
-- **Maintenance overhead** - Constant updates for API changes
-- **Limited reusability** - Integrations locked to specific AI systems
-
-### **The Solution**
-
-MCP provides a **standardized bridge** between AI systems and external tools:
-
-- **Unified protocol** - Same interface for all services
-- **Secure authentication** - OAuth 2.1 and PAT token support
-- **Session management** - Reliable connection handling
-- **Tool discovery** - Dynamic capability detection
-
-## Core Concepts
-
-### **1. JSON-RPC 2.0 Foundation**
+### **JSON-RPC 2.0 Foundation**
 
 MCP is built on **JSON-RPC 2.0**, providing:
 
@@ -45,7 +25,7 @@ MCP is built on **JSON-RPC 2.0**, providing:
 - **Bidirectional messaging** for real-time updates
 - **Protocol versioning** for backward compatibility
 
-### **2. Session-Based Communication**
+### **Session-Based Communication**
 
 Every MCP interaction requires an active session:
 
@@ -70,7 +50,7 @@ sequenceDiagram
     MCP->>AI: formatted response
 ```
 
-### **3. Multi-Tenant Architecture**
+### **Multi-Tenant Architecture**
 
 MCP supports multiple isolated environments:
 
@@ -79,125 +59,119 @@ MCP supports multiple isolated environments:
 - **Separate authentication** contexts
 - **Resource namespacing** by tenant
 
-### **4. Capability Discovery**
+## Protocol Components
 
-MCP servers advertise their capabilities:
+### **Server Features**
 
-- **Tools** - Functions that can be executed
-- **Resources** - Data that can be accessed
+- **Tools** - Functions that can be executed by AI systems
+- **Resources** - Data that can be accessed and read
 - **Prompts** - Templates for AI interactions
-- **Utilities** - Health checks and configuration
 
-## Protocol Features
+### **Client Features**
 
-### **Security First**
+- **Sampling** - Control over AI model behavior
+- **Root Lists** - Directory structure management
 
-- **OAuth 2.1 Client Credentials** flow
-- **Personal Access Tokens (PATs)** for service accounts
-- **Scope-based permissions** (`mcp.read`, `mcp.write`, `mcp.tools.execute`)
-- **Session isolation** between tenants
+### **Utilities**
 
-### **Real-Time Communication**
+- **Ping** - Connection health monitoring
+- **Cancellation** - Request cancellation notifications
+- **Progress** - Progress tracking for long-running operations
 
-- **Notifications** for resource changes
-- **Progress updates** for long-running operations
-- **Error propagation** with detailed context
-- **Connection health monitoring**
+### **Cross-Cutting Features**
 
-### **Extensible Design**
+- **Logging** - Configurable server logging levels
+- **Completion** - Argument completion suggestions
+- **Pagination** - Handling large result sets
 
-- **Custom tool registration** for new capabilities
-- **Resource type flexibility** (JSON, CSV, PDF, images)
-- **Prompt parameterization** for dynamic content
-- **Plugin architecture** for specialized integrations
+## Message Types
 
-## MCP vs Traditional APIs
+### **Requests**
 
-| Aspect                 | Traditional APIs     | MCP Protocol                 |
-| ---------------------- | -------------------- | ---------------------------- |
-| **Interface**          | Service-specific     | Standardized JSON-RPC        |
-| **Discovery**          | Static documentation | Dynamic capability detection |
-| **Authentication**     | Various methods      | Unified OAuth/PAT            |
-| **Session Management** | Stateless            | Session-based with lifecycle |
-| **Error Handling**     | HTTP status codes    | Structured JSON-RPC errors   |
-| **Real-time Updates**  | Webhooks/polling     | Built-in notifications       |
-| **AI Integration**     | Custom adapters      | Native AI-friendly format    |
-
-## Use Cases
-
-### **CRM Integration**
+Standard JSON-RPC requests with required ID:
 
 ```json
 {
-  "method": "tools/call",
-  "params": {
-    "name": "get_contacts",
-    "arguments": {
-      "limit": 10,
-      "filter": "recent"
-    }
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "method": "tools/list",
+  "params": {}
+}
+```
+
+### **Responses**
+
+Standard JSON-RPC responses:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "result": {
+    "tools": [...]
   }
 }
 ```
 
-### **Document Access**
+### **Notifications**
+
+One-way messages without responses:
 
 ```json
 {
-  "method": "resources/read",
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
   "params": {
-    "uri": "file://reports/sales_data.csv"
-  }
-}
-```
-
-### **AI Prompt Templates**
-
-```json
-{
-  "method": "prompts/get",
-  "params": {
-    "name": "analyze_performance",
-    "arguments": {
-      "time_period": "Q1 2024",
-      "metric": "revenue"
-    }
+    "progressToken": "abc123",
+    "progress": 50,
+    "total": 100
   }
 }
 ```
 
 ## Implementation Requirements
 
-To implement MCP, servers must support:
+### **Required Components**
 
-1. **Core Protocol**
+1. **Base Protocol** - JSON-RPC 2.0 messaging
+2. **Lifecycle Management** - Session initialization and management
+3. **Authentication** - OAuth 2.1 or PAT token support
+4. **At least one feature** - Tools, Resources, or Prompts
 
-   - JSON-RPC 2.0 messaging
-   - Session initialization and management
-   - Error handling and status reporting
+### **Optional Components**
 
-2. **Authentication**
+- Server features (tools, resources, prompts)
+- Client features (sampling, root lists)
+- Utilities (ping, cancellation, progress)
+- Cross-cutting features (logging, completion, pagination)
 
-   - OAuth 2.1 client credentials flow
-   - PAT token validation
-   - Scope-based access control
+## Security Model
 
-3. **Required Methods**
+- **OAuth 2.1 Client Credentials** flow for applications
+- **Personal Access Tokens (PATs)** for service accounts
+- **Scope-based permissions** (`mcp.read`, `mcp.write`, `mcp.tools.execute`)
+- **Session isolation** between tenants
+- **Request validation** and sanitization
 
-   - `initialize` - Session establishment
-   - `ping` - Health monitoring
-   - At least one of: `tools/*`, `resources/*`, or `prompts/*`
+## Error Handling
 
-4. **Optional Features**
-   - Notifications and subscriptions
-   - Completion suggestions
-   - Logging configuration
-   - Custom tool registration
+MCP uses standard JSON-RPC error codes:
+
+| Code     | Meaning               | Description                    |
+| -------- | --------------------- | ------------------------------ |
+| `-32700` | Parse error           | Invalid JSON                   |
+| `-32600` | Invalid request       | Invalid JSON-RPC structure     |
+| `-32601` | Method not found      | Unknown method                 |
+| `-32602` | Invalid params        | Invalid method parameters      |
+| `-32603` | Internal error        | Server-side processing error   |
+| `-32000` | Authentication failed | Invalid or missing credentials |
+| `-32001` | Resource not found    | Requested resource unavailable |
+| `-32002` | Rate limit exceeded   | Too many requests              |
 
 ## Next Steps
 
 Ready to implement MCP? Continue with:
 
-- **[Session Management](./session-management)** - Learn the session lifecycle
-- **[Authentication](../authentication/mcp-server)** - Set up secure access
-- **[MCP Methods](../mcp-methods/tools-list)** - Explore available capabilities
+- [Session Management](./session-management) - Learn about MCP session lifecycle
+- [Error Handling](./error-handling) - Understand error codes and handling
+- [Authentication](../authentication/introduction) - Set up secure access

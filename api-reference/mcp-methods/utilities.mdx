@@ -1,30 +1,30 @@
 ---
 title: "Utilities"
 openapi: "POST /{tenant}/mcp"
-description: "MCP utility methods including ping (health checks), logging configuration, and argument completion using JSON-RPC 2.0 protocol."
+description: "MCP utility methods for connection health monitoring, request cancellation, and progress tracking using JSON-RPC 2.0 protocol."
 ---
 
 ## Protocol Overview
 
-This endpoint provides **three essential utility methods** for MCP communication:
+This endpoint provides **three core MCP utility methods** as defined in the MCP 2025-03-26 specification:
 
-1. **`ping`** - Health checks and connection monitoring
-2. **`logging/setLevel`** - Configure server logging levels
-3. **`completion/complete`** - Get argument completion suggestions
+1. **`ping`** - Connection health monitoring and latency testing
+2. **`notifications/cancelled`** - Request cancellation notifications
+3. **`notifications/progress`** - Progress tracking for long-running operations
 
-All methods use **JSON-RPC 2.0** over HTTP with a single tenant endpoint.
+All methods use **JSON-RPC 2.0** over HTTP with tenant-specific endpoints.
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
 2. **Authentication**: Valid OAuth token or PAT with appropriate scopes
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 
 ---
 
 ## Ping Method
 
-Test connection health and measure latency.
+Test connection health and measure server responsiveness.
 
 ### Request Format
 
@@ -44,7 +44,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "ping-health-check",
+    "id": "health-check",
     "method": "ping"
   }'
 ```
@@ -76,7 +76,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
-  Empty object `{}` (success indicator)
+  Empty object `{}` indicating successful ping
 </ResponseField>
 
 ### Example Response
@@ -94,20 +94,20 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ---
 
-## Logging Method
+## Cancellation Notifications
 
-Configure the minimum log level for server messages.
+Cancel in-progress requests using MCP cancellation notifications.
 
-### Request Format
+### Notification Format
 
 <CodeGroup>
-```json JSON-RPC Request
+```json Cancellation Notification
 {
   "jsonrpc": "2.0",
-  "id": "logging-123",
-  "method": "logging/setLevel",
+  "method": "notifications/cancelled",
   "params": {
-    "level": "info"
+    "requestId": "operation-456",
+    "reason": "User requested cancellation"
   }
 }
 ```
@@ -119,61 +119,69 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "set-log-level",
-    "method": "logging/setLevel",
+    "method": "notifications/cancelled",
     "params": {
-      "level": "debug"
+      "requestId": "long-running-operation",
+      "reason": "Timeout exceeded"
     }
   }'
 ```
 
 </CodeGroup>
 
-### Request Parameters
+### Notification Parameters
 
 <ParamField path="jsonrpc" type="string" required>
   Must be `"2.0"` (JSON-RPC version)
 </ParamField>
 
-<ParamField path="id" type="string" required>
-  Unique request identifier
-</ParamField>
-
 <ParamField path="method" type="string" required>
-  Must be `"logging/setLevel"`
+  Must be `"notifications/cancelled"`
 </ParamField>
 
 <ParamField path="params" type="object" required>
-  Logging configuration parameters
+  Cancellation parameters
 
   <Expandable title="params properties">
-    <ParamField path="level" type="string" required>
-      Log level to set. Valid values: `"debug"`, `"info"`, `"notice"`, `"warning"`, `"error"`, `"critical"`, `"alert"`, `"emergency"`
+    <ParamField path="requestId" type="string" required>
+      ID of the request to cancel (must match a previously sent request)
     </ParamField>
+
+    <ParamField path="reason" type="string">
+      Optional reason for cancellation (for logging and debugging)
+    </ParamField>
+
   </Expandable>
 </ParamField>
 
-### Log Levels
+### Behavior Requirements
 
-| Level       | Description                      | Use Case                          |
-| ----------- | -------------------------------- | --------------------------------- |
-| `debug`     | Detailed debugging information   | Development and troubleshooting   |
-| `info`      | General informational messages   | Normal operation monitoring       |
-| `notice`    | Normal but significant events    | Important operational events      |
-| `warning`   | Warning conditions               | Potential issues                  |
-| `error`     | Error conditions                 | Actual errors requiring attention |
-| `critical`  | Critical conditions              | Severe errors affecting service   |
-| `alert`     | Action must be taken immediately | System-wide failures              |
-| `emergency` | System is unusable               | Complete system failure           |
+- **No Response**: Notifications do not return responses (fire-and-forget)
+- **Race Conditions**: Server handles gracefully if request already completed
+- **Unknown Requests**: Server ignores cancellation for unknown request IDs
+- **HTTP Status**: Returns `202 Accepted` for valid notifications
 
-### Example Response
+### Example Usage
 
 <ResponseExample>
-```json Logging Success
+```json Simple Cancellation
 {
   "jsonrpc": "2.0",
-  "id": "logging-123",
-  "result": {}
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": "tools-call-789"
+  }
+}
+```
+
+```json Detailed Cancellation
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": "resource-read-101",
+    "reason": "User cancelled operation"
+  }
 }
 ```
 
@@ -181,204 +189,173 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ---
 
-## Completion Method
+## Progress Notifications
 
-Get intelligent argument completion suggestions for prompts, tools, and resources.
+Track progress of long-running operations using progress tokens.
 
-### Request Format
+### Progress Token Setup
+
+Include a `progressToken` in the request metadata to enable progress tracking:
 
 <CodeGroup>
-```json Tool Argument Completion
+```json Request with Progress Token
 {
   "jsonrpc": "2.0",
-  "id": "completion-123",
-  "method": "completion/complete",
+  "id": "operation-123",
+  "method": "tools/call",
   "params": {
-    "ref": {
-      "type": "ref/tool",
-      "name": "get_contacts"
+    "name": "process_large_dataset",
+    "arguments": {
+      "dataset_id": "data_2024"
     },
-    "argument": {
-      "name": "status",
-      "value": "ac"
+    "_meta": {
+      "progressToken": "progress-abc123"
     }
   }
 }
-```
-
-```json Prompt Argument Completion
-{
-  "jsonrpc": "2.0",
-  "id": "completion-124",
-  "method": "completion/complete",
-  "params": {
-    "ref": {
-      "type": "ref/prompt",
-      "name": "analyze_sales_performance"
-    },
-    "argument": {
-      "name": "metric_focus",
-      "value": "rev"
-    }
-  }
-}
-```
-
-```bash cURL Example
-curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
-  -H "Authorization: Bearer your_oauth_token" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: session_abc123" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "complete-tool-args",
-    "method": "completion/complete",
-    "params": {
-      "ref": {
-        "type": "ref/tool",
-        "name": "get_deals"
-      },
-      "argument": {
-        "name": "status",
-        "value": "op"
-      }
-    }
-  }'
 ```
 
 </CodeGroup>
 
-### Request Parameters
+### Progress Notification Format
+
+The server sends progress updates using the progress token:
+
+<CodeGroup>
+```json Progress Notification
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "progress-abc123",
+    "progress": 50,
+    "total": 100,
+    "message": "Processing records..."
+  }
+}
+```
+
+```bash Monitoring Progress
+# Server automatically sends progress notifications
+# No explicit request needed - just listen for notifications
+```
+
+</CodeGroup>
+
+### Progress Parameters
 
 <ParamField path="jsonrpc" type="string" required>
   Must be `"2.0"` (JSON-RPC version)
 </ParamField>
 
-<ParamField path="id" type="string" required>
-  Unique request identifier
-</ParamField>
-
 <ParamField path="method" type="string" required>
-  Must be `"completion/complete"`
+  Must be `"notifications/progress"`
 </ParamField>
 
 <ParamField path="params" type="object" required>
-  Completion request parameters
+  Progress update parameters
 
   <Expandable title="params properties">
-    <ParamField path="ref" type="object" required>
-      Reference to the item being completed
-      <Expandable title="ref properties">
-        <ParamField path="type" type="string" required>
-          Reference type: `"ref/tool"`, `"ref/prompt"`, or `"ref/resource"`
-        </ParamField>
-
-        <ParamField path="name" type="string">
-          Name of tool/prompt (for ref/tool and ref/prompt)
-        </ParamField>
-
-        <ParamField path="uri" type="string">
-          Resource URI template (for ref/resource)
-        </ParamField>
-      </Expandable>
+    <ParamField path="progressToken" type="string" required>
+      Token from the original request (must match exactly)
     </ParamField>
 
-    <ParamField path="argument" type="object" required>
-      Argument being completed
-      <Expandable title="argument properties">
-        <ParamField path="name" type="string" required>
-          Name of the argument/parameter
-        </ParamField>
+    <ParamField path="progress" type="number" required>
+      Current progress value (must increase with each update)
+    </ParamField>
 
-        <ParamField path="value" type="string" required>
-          Partial value to complete
-        </ParamField>
-      </Expandable>
+    <ParamField path="total" type="number">
+      Total expected value (optional, may be unknown)
+    </ParamField>
+
+    <ParamField path="message" type="string">
+      Human-readable progress description
     </ParamField>
 
   </Expandable>
 </ParamField>
 
-### Response Format
+### Progress Flow
 
-<ResponseField name="result" type="object" required>
-  Completion suggestions
-  <Expandable title="result properties">
-    <ResponseField name="completion" type="object" required>
-      Completion data
-      <Expandable title="completion properties">
-        <ResponseField name="values" type="array" required>
-          Array of completion suggestions (strings)
-        </ResponseField>
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Operation
 
-        <ResponseField name="total" type="integer" required>
-          Total number of available completions
-        </ResponseField>
+    Client->>Server: Request with progressToken
+    Server->>Operation: Start processing
+    Server->>Client: Initial response
 
-        <ResponseField name="hasMore" type="boolean" required>
-          Whether more completions are available
-        </ResponseField>
-      </Expandable>
-    </ResponseField>
+    loop Progress Updates
+        Operation->>Server: Progress update
+        Server->>Client: notifications/progress
+    end
 
-  </Expandable>
-</ResponseField>
+    Operation->>Server: Complete
+    Note over Client,Server: No more progress notifications
+```
 
-### Example Responses
+### Example Progress Sequence
 
 <ResponseExample>
-```json Tool Completion Response
+```json Progress Start (0%)
 {
   "jsonrpc": "2.0",
-  "id": "completion-123",
-  "result": {
-    "completion": {
-      "values": ["active", "active_trial", "active_premium"],
-      "total": 3,
-      "hasMore": false
-    }
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "import-data-456",
+    "progress": 0,
+    "total": 1000,
+    "message": "Starting data import..."
   }
 }
 ```
 
-```json Prompt Completion Response
+```json Progress Update (25%)
 {
   "jsonrpc": "2.0",
-  "id": "completion-124",
-  "result": {
-    "completion": {
-      "values": ["revenue", "revenue_growth", "revenue_per_deal"],
-      "total": 8,
-      "hasMore": true
-    }
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "import-data-456",
+    "progress": 250,
+    "total": 1000,
+    "message": "Processed 250 records"
   }
 }
 ```
 
-```json Resource Completion Response
+```json Progress Complete (100%)
 {
   "jsonrpc": "2.0",
-  "id": "completion-125",
-  "result": {
-    "completion": {
-      "values": ["contacts/123", "contacts/124", "contacts/125"],
-      "total": 150,
-      "hasMore": true
-    }
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "import-data-456",
+    "progress": 1000,
+    "total": 1000,
+    "message": "Import completed successfully"
   }
 }
 ```
 
 </ResponseExample>
 
-## Common Error Codes
+## Error Handling
 
-| Code     | Meaning             | Solution                                      |
-| -------- | ------------------- | --------------------------------------------- |
-| `-32602` | Invalid params      | Check reference type and argument format      |
-| `-32001` | Reference not found | Verify tool/prompt/resource exists            |
-| `-32000` | Authentication      | Verify OAuth token and session initialization |
-| `-32603` | Internal error      | Server-side error, check implementation       |
+### Common Error Codes
+
+| Code     | Meaning               | Solution                                      |
+| -------- | --------------------- | --------------------------------------------- |
+| `-32602` | Invalid params        | Check notification format and required fields |
+| `-32001` | Request not found     | Verify request ID exists and is active        |
+| `-32000` | Authentication failed | Check OAuth token and session validity        |
+| `-32603` | Internal server error | Server-side processing error                  |
+
+### Timeout Handling
+
+- **Ping timeouts**: Consider connection stale after reasonable timeout
+- **Cancellation race conditions**: Handle gracefully if request completes before cancellation
+- **Progress token cleanup**: Server automatically cleans up completed operations
 
 ## Usage Patterns
 
@@ -388,31 +365,48 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 // Regular health checks
 setInterval(async () => {
   try {
+    const start = Date.now();
     await mcpClient.ping();
-    console.log("MCP server healthy");
+    const latency = Date.now() - start;
+    console.log(`MCP server healthy (${latency}ms)`);
   } catch (error) {
     console.error("MCP server unhealthy:", error);
   }
-}, 30000); // Every 30 seconds
+}, 30000);
 ```
 
-### Dynamic Logging
+### Operation Cancellation
 
 ```javascript
-// Adjust logging level based on environment
-const logLevel = process.env.NODE_ENV === "production" ? "warning" : "debug";
-await mcpClient.setLogLevel(logLevel);
+// Cancel long-running operation
+const operationId = "data-export-123";
+
+// Start operation
+const promise = mcpClient.call("export_data", { format: "csv" }, operationId);
+
+// Cancel if needed
+setTimeout(() => {
+  mcpClient.cancel(operationId, "Operation timeout");
+}, 60000);
 ```
 
-### Auto-completion UI
+### Progress Tracking
 
 ```javascript
-// Provide auto-completion in user interfaces
-async function getCompletions(toolName, argName, partialValue) {
-  const response = await mcpClient.complete({
-    ref: { type: "ref/tool", name: toolName },
-    argument: { name: argName, value: partialValue },
-  });
-  return response.result.completion.values;
-}
+// Track operation progress
+const progressToken = `progress-${Date.now()}`;
+
+// Listen for progress updates
+mcpClient.onProgress(progressToken, (update) => {
+  const percent = Math.round((update.progress / update.total) * 100);
+  console.log(`${percent}%: ${update.message}`);
+});
+
+// Start operation with progress tracking
+await mcpClient.call(
+  "process_data",
+  { dataset: "large_file.csv" },
+  `operation-${Date.now()}`,
+  { progressToken }
+);
 ```
