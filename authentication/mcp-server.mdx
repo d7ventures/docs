@@ -351,15 +351,16 @@ For applications like Claude accessing user's MCP servers:
     and configure redirect URIs for secure authorization flows.
   </Accordion>
 
-  <Accordion title="User Consent Flow" icon="user-check">
-    1. **Authorization Request:** Application redirects user to Kambrium OAuth
-    endpoint 2. **User Login:** User authenticates with Kambrium 3. **Consent
-    Screen:** User grants permission for application to access specific MCP
-    servers 4. **Authorization Code:** Kambrium redirects back with
-    authorization code 5. **Token Exchange:** Application exchanges code for
-    access token 6. **MCP Access:** Application uses token to access authorized
-    MCP servers
-  </Accordion>
+{" "}
+
+<Accordion title="User Consent Flow" icon="user-check">
+  1. **Authorization Request:** Application redirects user to Kambrium OAuth
+  endpoint 2. **User Login:** User authenticates with Kambrium 3. **Consent
+  Screen:** User grants permission for application to access specific MCP
+  servers 4. **Authorization Code:** Kambrium redirects back with authorization
+  code 5. **Token Exchange:** Application exchanges code for access token 6.
+  **MCP Access:** Application uses token to access authorized MCP servers
+</Accordion>
 
   <Accordion title="PKCE Security" icon="shield">
     All Authorization Code flows use PKCE (Proof Key for Code Exchange) for
@@ -640,13 +641,17 @@ def test_mcp_connection(endpoint, token):
     Learn how to configure specific SaaS tool connections
   </Card>
 
-  <Card title="Management API" href="/authentication/management-api" icon="cog">
-    Create and manage MCP server connections programmatically
-  </Card>
+{" "}
 
-  <Card title="Complete Tutorial" href="/guides/mcp-setup" icon="rocket">
-    End-to-end setup walkthrough
-  </Card>
+<Card title="Management API" href="/authentication/management-api" icon="cog">
+  Create and manage MCP server connections programmatically
+</Card>
+
+{" "}
+
+<Card title="Complete Tutorial" href="/guides/mcp-setup" icon="rocket">
+  End-to-end setup walkthrough
+</Card>
 
   <Card
     title="MCP Specification"

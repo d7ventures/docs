@@ -22,7 +22,19 @@
       "dark": "#111827"
     }
   },
-  "favicon": "/kambrium_favicon.png",
+  "favicon": "/favicon.svg",
+  "seo": {
+    "indexHiddenPages": false
+  },
+  "metadata": {
+    "title": "Kambrium Documentation",
+    "description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools",
+    "og:title": "Kambrium Documentation",
+    "og:description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools",
+    "og:image": "/logo/kambrium_black.png",
+    "twitter:title": "Kambrium Documentation",
+    "twitter:description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools"
+  },
   "navigation": {
     "tabs": [
       {

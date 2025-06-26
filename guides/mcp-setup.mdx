@@ -384,10 +384,12 @@ Each integration provides different methods. Common patterns include:
     sales opportunities - `update_deal` - Modify deal information
   </Accordion>
 
-  <Accordion title="Communication (Slack, Teams)" icon="message">
-    - `list_channels` - Get available channels - `send_message` - Post message
-    to channel - `get_users` - List team members - `upload_file` - Share files
-  </Accordion>
+{" "}
+
+<Accordion title="Communication (Slack, Teams)" icon="message">
+  - `list_channels` - Get available channels - `send_message` - Post message to
+  channel - `get_users` - List team members - `upload_file` - Share files
+</Accordion>
 
   <Accordion title="Productivity (Google, Office)" icon="briefcase">
     - `list_files` - Get documents/spreadsheets - `create_document` - Create new
@@ -469,12 +471,14 @@ response = requests.post(
     account has necessary permissions
   </Accordion>
 
-  <Accordion title="Method Not Found" icon="search">
-    **Symptoms:** API returns "method not supported" error **Solutions:** -
-    Check integration documentation for available methods - Verify integration
-    supports the operation you're trying - Update to latest integration version
-    - Contact support for custom method requests
-  </Accordion>
+{" "}
+
+<Accordion title="Method Not Found" icon="search">
+  **Symptoms:** API returns "method not supported" error **Solutions:** - Check
+  integration documentation for available methods - Verify integration supports
+  the operation you're trying - Update to latest integration version - Contact
+  support for custom method requests
+</Accordion>
 
   <Accordion title="Rate Limiting" icon="clock">
     **Symptoms:** 429 errors or slow responses **Solutions:** - Implement
@@ -511,13 +515,17 @@ requests.patch(
     Learn how to use your MCP connections in AI agent workflows
   </Card>
 
-  <Card title="API Reference" href="/api-reference/introduction" icon="book">
-    Explore the complete Management API documentation
-  </Card>
+{" "}
 
-  <Card title="Integration Catalog" href="/integrations" icon="grid">
-    Browse all available SaaS integrations and their capabilities
-  </Card>
+<Card title="API Reference" href="/api-reference/introduction" icon="book">
+  Explore the complete Management API documentation
+</Card>
+
+{" "}
+
+<Card title="Integration Catalog" href="/integrations" icon="grid">
+  Browse all available SaaS integrations and their capabilities
+</Card>
 
   <Card
     title="Webhooks Guide"
