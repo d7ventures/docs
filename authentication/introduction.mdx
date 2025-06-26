@@ -1,42 +1,31 @@
 ---
-title: "Authentication Introduction"
-description: "Overview of the Kambrium MCP Platform architecture and authentication methods"
+title: "Authentication Overview"
+description: "Understanding the Kambrium MCP Platform three-layer authentication architecture"
 ---
 
 ## Platform Overview
 
-Kambrium provides **Model Context Protocol (MCP) Servers** that enable customers to connect AI agents to third-party SaaS tools. Our architecture is designed to be fully compliant with the MCP specification, leveraging a unified OAuth 2.1 framework for secure access across different use cases.
+Kambrium provides **Model Context Protocol (MCP) Servers** that enable you to connect AI applications to third-party SaaS tools through a standardized protocol. Our platform implements a three-layer architecture designed for secure, scalable access to your business data.
 
 ### What is MCP?
 
-The **Model Context Protocol** is an open standard that allows AI agents to securely connect to external data sources and tools. Instead of building custom integrations for each SaaS tool, MCP provides a standardized way for AI applications to interact with your business systems.
-
-**Why use Kambrium vs. direct API integration?**
-
-- **Standardized protocol** - One integration pattern for all tools
-- **Built-in security** - OAuth 2.1 compliance with proper scoping
-- **Agent-optimized** - Designed specifically for AI agent interactions
-- **Simplified management** - Central dashboard for all connections
+The **Model Context Protocol** is an open standard that allows AI applications to securely connect to external data sources and tools. Kambrium provides MCP-compliant servers that translate between the standardized protocol and specific SaaS tool APIs.
 
 ---
 
 ## Three-Layer Architecture
 
-The Kambrium platform operates through three distinct layers that work together:
+The Kambrium platform operates through three distinct layers:
 
 ```mermaid
 graph TD
-    A[Your Application/Agent] --> B[Management API]
+    A[Your Application] --> B[Management API]
     B --> C[MCP Servers]
-    C --> D[3rd-Party SaaS Tools]
+    C --> D[SaaS Tools]
 
-    B1[FastAPI Implementation] --> B
-    C1[Salesforce MCP Server] --> C
-    C2[Slack MCP Server] --> C
-    C3[Notion MCP Server] --> C
-    D1[Salesforce] --> D
-    D2[Slack] --> D
-    D3[Notion] --> D
+    B1[FastAPI<br/>Lifecycle Management] --> B
+    C1[MCP Protocol<br/>Compliant Servers] --> C
+    D1[Salesforce<br/>Slack<br/>Notion<br/>etc.] --> D
 
     style A fill:#8470FF,color:white
     style B fill:#67BFFF,color:white
@@ -44,62 +33,134 @@ graph TD
     style D fill:#F59E0B,color:white
 ```
 
-<CardGroup cols={1}>
-  <Card title="Layer 1: Management API" icon="cog">
-    **Purpose:** High-level administrative API for managing the lifecycle of MCP Server connections
-    
-    **Technology:** FastAPI implementation that sits above individual MCP Servers
-    
-    **Available Operations:**
-    - Get all available MCP Server integrations
-    - Create new MCP Server connections  
-    - Get own MCP Server connections
-    - Delete own MCP Server connections
-    - Edit own MCP Server connections
-    
-    **Authentication:** OAuth 2.1 with JWT tokens in `Authorization: Bearer <token>` header
-  </Card>
-  
-  <Card title="Layer 2: MCP Servers" icon="server">
-    **Purpose:** Protocol-compliant servers that provide standardized access to specific SaaS tools
-    
-    **Function:** Each MCP Server handles the specific API implementation for one SaaS tool (Slack, Salesforce, Notion, etc.) and exposes it through the standardized MCP protocol
-    
-    **Lifecycle:** Managed through the Management API
-    
-    **Compliance:** Fully MCP specification compliant
-  </Card>
-  
-  <Card title="Layer 3: 3rd-Party SaaS Tools" icon="plug">
-    **Purpose:** Your existing business applications and data sources
-    
-    **Examples:** Salesforce, Slack, Notion, GitHub, Google Workspace, HubSpot, etc.
-    
-    **Authentication:** Handled transparently through OAuth flows or API keys
-    
-    **Access:** Abstracted through the MCP protocol in Layer 2
-  </Card>
-</CardGroup>
+### Layer 1: Management API
+
+**Purpose:** High-level administrative interface for managing MCP Server connections
+
+**Implementation:** FastAPI-based service that handles the lifecycle of MCP Server connections
+
+**Core Operations:**
+
+- Get all available MCP Server integrations
+- Create new MCP Server connections
+- Get your MCP Server connections
+- Delete your MCP Server connections
+- Edit your MCP Server connections
+
+**Authentication:** OAuth 2.1 with JWT tokens
+
+### Layer 2: MCP Servers
+
+**Purpose:** Protocol-compliant servers that provide standardized access to SaaS tools
+
+**Implementation:** Individual servers for each SaaS integration (Salesforce, Slack, Notion, etc.)
+
+**Function:** Translate between MCP protocol and specific SaaS tool APIs
+
+**Standards Compliance:** Fully compliant with MCP specification
+
+### Layer 3: SaaS Tools
+
+**Purpose:** Your existing business applications and data sources
+
+**Examples:** Salesforce, Slack, Notion, GitHub, and other third-party services
+
+**Integration:** Connected via API keys or OAuth 2.1 flows
 
 ---
 
 ## Authentication Methods
 
-The platform supports multiple authentication methods depending on your use case:
+The platform supports two primary authentication approaches across all layers:
 
 <CardGroup cols={2}>
-  <Card title="Personal Access Tokens (PATs)" icon="key">
-    **Best for:** Development, scripting, CI/CD pipelines, internal tools
-    **Characteristics:** - Long-lived tokens (configurable expiration) - Simple
-    "copy-paste" experience - OAuth 2.1 compliant JWT tokens - Perfect for
-    automation and testing
+  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
+    **Best for:** Production applications, server-to-server communication **How
+    it works:** - Generate client_id and client_secret in web interface - Use
+    Client Credentials Grant flow for short-lived tokens - Automatic token
+    refresh capability - Industry standard security
   </Card>
 
-  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
-    **Best for:** Production applications, server-to-server communication
-    **Characteristics:** - Short-lived tokens with automatic refresh - Industry
-    standard security - Programmatic token generation - Suitable for
-    high-security environments
+  <Card title="Personal Access Tokens (PATs)" icon="key">
+    **Best for:** Development, scripting, CI/CD pipelines **How it works:** -
+    Generate long-lived JWT tokens in web interface - Simple "copy-paste"
+    experience like traditional API keys - OAuth 2.1 compliant without
+    complexity - No token refresh logic required
+  </Card>
+</CardGroup>
+
+---
+
+## Connection Flow Overview
+
+### Creating MCP Server Connections
+
+**Web Interface (Direct):**
+
+1. Navigate to the Kambrium web interface
+2. Select the SaaS tool you want to connect
+3. Choose authentication method:
+   - **API Key:** Paste your SaaS tool's API key directly
+   - **OAuth:** Click "Connect" to initiate OAuth flow with the SaaS provider
+
+**Management API (Programmatic):**
+
+1. Authenticate with Management API using OAuth token or PAT
+2. Call "Create MCP Server" endpoint with SaaS tool details
+3. For OAuth connections: Direct users to provided authorization URL
+4. For API key connections: Include API key in the creation request
+
+### Using MCP Servers
+
+Once created, MCP Servers can be accessed through:
+
+**Standard MCP Protocol:**
+
+- WebSocket or HTTP connections
+- Full MCP specification compliance
+- OAuth 2.1 authentication required
+
+**Third-party Applications:**
+
+- Applications like Claude can connect via OAuth Authorization Code Flow
+- Users grant consent for third-party access
+- Standard OAuth scoping and permissions
+
+---
+
+## Security Architecture
+
+### Token-Based Security
+
+All API access uses **OAuth 2.1 JWT tokens** in the `Authorization: Bearer <token>` header:
+
+- **Management API:** Requires valid JWT for all operations
+- **MCP Servers:** Require valid JWT for protocol access
+- **SaaS Tools:** Credentials managed securely by the platform
+
+### Delegation and Attribution
+
+For applications serving multiple users, the platform supports:
+
+- **Token Exchange (RFC 8693):** Secure delegation of access rights
+- **Proper Attribution:** Clear tracking of which user performed which actions
+- **Billing and Auditing:** Transparent usage tracking per user
+
+---
+
+## Integration Options
+
+<CardGroup cols={2}>
+  <Card title="Direct Integration" icon="user">
+    **Who:** Individuals or teams using MCP servers directly **Interface:** Web
+    dashboard for setup and configuration **Access:** Direct MCP protocol access
+    or third-party applications
+  </Card>
+
+  <Card title="Embedded Integration" icon="code">
+    **Who:** Developers building applications for their users **Interface:**
+    Management API for programmatic control **Access:** Token exchange for
+    secure user delegation
   </Card>
 </CardGroup>
 
@@ -107,69 +168,39 @@ The platform supports multiple authentication methods depending on your use case
 
 ## Getting Started
 
-Ready to integrate with Kambrium? Here's your roadmap:
+Choose your integration path:
 
 <CardGroup cols={2}>
-  <Card
-    title="Management API Authentication"
-    href="/authentication/management-api"
-    icon="key"
-  >
-    Learn how to authenticate with our Management API using PATs or OAuth 2.1
+  <Card title="Management API" href="/authentication/management-api" icon="cog">
+    Learn about programmatic lifecycle management of MCP servers
   </Card>
 
   <Card
-    title="MCP Server Setup"
+    title="MCP Server Access"
     href="/authentication/mcp-server"
     icon="server"
   >
-    Understand how MCP Servers work and how to use them in your applications
+    Understand how to connect and interact with MCP servers
   </Card>
 
   <Card
-    title="SaaS Integrations"
+    title="SaaS Integration"
     href="/authentication/integrations"
     icon="plug"
   >
-    Connect your first SaaS tool and handle OAuth flows
+    Set up connections to your business tools
   </Card>
 
-  <Card title="Complete Guide" href="/guides/mcp-setup" icon="rocket">
-    Follow our step-by-step integration tutorial
-  </Card>
-</CardGroup>
-
----
-
-## Base URLs
-
-When working with the Kambrium platform, you'll interact with these endpoints:
-
-- **Management API:** `https://api.kambrium.com`
-- **OAuth Server:** `https://auth.kambrium.com`
-- **MCP Servers:** `https://mcp.kambrium.com`
-
----
-
-## Next Steps
-
-<CardGroup cols={2}>
   <Card
-    title="Management API Authentication"
-    href="/authentication/management-api"
-    icon="arrow-right"
+    title="Web Dashboard"
+    href="https://app.kambrium.com"
+    icon="external-link"
   >
-    Start with Management API authentication to create and manage your MCP
-    servers
-  </Card>
-
-  <Card title="Dashboard" href="https://app.kambrium.com" icon="external-link">
-    Access the Kambrium web interface to get started visually
+    Get started with our visual interface
   </Card>
 </CardGroup>
 
 <Note>
-  Need help getting started? Join our [Discord
-  community](https://discord.gg/kambrium) or contact
-  [support@kambrium.com](mailto:support@kambrium.com).
-</Note>{" "}
+  This architecture ensures secure, scalable access to your business data while
+  maintaining full compliance with MCP specifications and OAuth 2.1 standards.
+</Note>
