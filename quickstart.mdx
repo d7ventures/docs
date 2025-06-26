@@ -1,97 +1,203 @@
 ---
-title: 'Quickstart'
-description: 'Start building awesome documentation in under 5 minutes'
+title: "Quickstart"
+description: "Get started with Kambrium MCP platform in under 5 minutes"
 ---
 
-## Setup your development
+# Quickstart Guide
 
-Learn how to update your docs locally and deploy them to the public.
+Welcome to Kambrium! This guide will help you get started with our MCP (Model Context Protocol) platform and connect your first AI application to SaaS tools.
 
-### Edit and preview
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- A Kambrium account (sign up at [app.kambrium.com](https://app.kambrium.com))
+- API credentials for the SaaS tools you want to connect
+- Basic understanding of REST APIs and OAuth 2.1
+
+## Step 1: Authentication Setup
+
+First, set up authentication to access Kambrium's APIs:
 
 <AccordionGroup>
-  <Accordion icon="github" title="Clone your docs locally">
-    During the onboarding process, we created a repository on your Github with
-    your docs content. You can find this repository on our
-    [dashboard](https://dashboard.mintlify.com). To clone the repository
-    locally, follow these
-    [instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
-    in your terminal.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Preview changes">
-    Previewing helps you make sure your changes look as intended. We built a
-    command line interface to render these changes locally. 
-    1. Install the
-    [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the
-    documentation changes locally with this command: ``` npm i -g mintlify ```
-    2. Run the following command at the root of your documentation (where
-    `docs.json` is): ``` mintlify dev ```
+  <Accordion icon="key" title="Get Your API Token">
+    1. Log in to your [Kambrium Dashboard](https://app.kambrium.com) 2. Navigate
+    to **Settings** → **API Tokens** 3. Click **Generate New Token** 4. Copy and
+    securely store your Personal Access Token (PAT)
     <Note>
-      If you’re currently using the legacy ```mint.json``` configuration file, please update the Mintlify CLI:
-
-
-      ```npm i -g mintlify@latest```
-      And run the new upgrade command in your docs repository:
-
-      ```mintlify upgrade```
-      You should now be using the new ```docs.json``` configuration file. Feel free to delete the ```mint.json``` file from your repository.
+      Keep your API token secure and never share it publicly. You'll use this
+      token to authenticate all API requests.
     </Note>
   </Accordion>
+
+  <Accordion icon="shield-check" title="Configure OAuth 2.1">
+    For production applications, set up OAuth 2.1 authentication: 1. In your
+    dashboard, go to **OAuth Applications** 2. Click **Create New Application**
+    3. Configure your redirect URIs and scopes 4. Note your `client_id` and
+    `client_secret` See our [OAuth 2.1 guide](/authentication/management-api)
+    for detailed setup instructions.
+  </Accordion>
 </AccordionGroup>
 
-### Deploy your changes
+## Step 2: Create Your First MCP Server
+
+Create an MCP server instance to connect to your SaaS tools:
 
 <AccordionGroup>
-
-<Accordion icon="message-bot" title="Install our Github app">
-  Our Github app automatically deploys your changes to your docs site, so you
-  don't need to manage deployments yourself. You can find the link to install on
-  your [dashboard](https://dashboard.mintlify.com). Once the bot has been
-  successfully installed, there should be a check mark next to the commit hash
-  of the repo.
-</Accordion>
-<Accordion icon="rocket" title="Push your changes">
-  [Commit and push your changes to
-  Git](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository#about-git-push)
-  for your changes to update in your docs site. If you push and don't see that
-  the Github app successfully deployed your changes, you can also manually
-  update your docs through our [dashboard](https://dashboard.mintlify.com).
-</Accordion>
-
+  <Accordion icon="server" title="Create MCP Server Instance">
+    Use the Management API to create your first MCP server:
+    
+    ```bash
+    curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
+      -H "Authorization: Bearer YOUR_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "server_type": "pipedrive",
+        "configuration": {
+          "api_token": "YOUR_PIPEDRIVE_TOKEN"
+        }
+      }'
+    ```
+    
+    This creates a Pipedrive MCP server that your AI applications can connect to.
+  </Accordion>
+  
+  <Accordion icon="list" title="List Available Tools">
+    Once your server is created, list the available tools:
+    
+    ```bash
+    curl -X GET https://api.kambrium.com/api/v1/mcp-servers/pipedrive/tools \
+      -H "Authorization: Bearer YOUR_API_TOKEN"
+    ```
+    
+    You'll see tools like `get_deals`, `create_contact`, `search_organizations`, etc.
+  </Accordion>
 </AccordionGroup>
 
-## Update your docs
+## Step 3: Connect Your AI Application
 
-Add content directly in your files with MDX syntax and React components. You can use any of our components, or even build your own.
+Now connect your AI application to use the MCP server:
 
-<CardGroup>
+<AccordionGroup>
+  <Accordion icon="plug" title="Initialize MCP Session">
+    Start an MCP protocol session:
+    
+    ```python
+    import requests
+    
+    # Initialize MCP session
+    response = requests.post(
+        "https://mcp.kambrium.com/initialize",
+        headers={
+            "Authorization": "Bearer YOUR_API_TOKEN",
+            "Content-Type": "application/json"
+        },
+        json={
+            "protocolVersion": "2025-03-26",
+            "capabilities": {
+                "tools": {},
+                "resources": {}
+            }
+        }
+    )
+    
+    session_id = response.json()["sessionId"]
+    ```
+  </Accordion>
+  
+  <Accordion icon="wrench" title="Call MCP Tools">
+    Use the MCP protocol to call tools from your AI application:
+    
+    ```python
+    # List available tools
+    tools_response = requests.post(
+        "https://mcp.kambrium.com/tools/list",
+        headers={
+            "Authorization": "Bearer YOUR_API_TOKEN",
+            "X-Session-ID": session_id
+        }
+    )
+    
+    # Call a specific tool
+    result = requests.post(
+        "https://mcp.kambrium.com/tools/call",
+        headers={
+            "Authorization": "Bearer YOUR_API_TOKEN",
+            "X-Session-ID": session_id
+        },
+        json={
+            "name": "get_deals",
+            "arguments": {
+                "status": "open",
+                "limit": 10
+            }
+        }
+    )
+    
+    deals_data = result.json()
+    ```
+  </Accordion>
+</AccordionGroup>
 
-<Card title="Add Content With MDX" icon="file" href="/essentials/markdown">
-  Add content to your docs with MDX syntax.
-</Card>
+## Step 4: Test Your Integration
 
-<Card
-  title="Add Code Blocks"
-  icon="square-code"
-  href="/essentials/code"
->
-  Add code directly to your docs with syntax highlighting.
-</Card>
+Verify everything is working correctly:
 
-<Card
-  title="Add Images"
-  icon="image"
-  href="/essentials/images"
->
-  Add images to your docs to make them more engaging.
-</Card>
+<CardGroup cols={2}>
+  <Card
+    title="Test API Endpoints"
+    icon="flask"
+    href="/api-reference/mcp-methods/tools-call"
+  >
+    Use our API reference to test different endpoints
+  </Card>
 
-<Card
-  title="Add Custom Components"
-  icon="puzzle-piece"
-  href="/essentials/reusable-snippets"
->
-  Add templates to your docs to make them more reusable.
-</Card>
-
+  <Card
+    title="View Server Logs"
+    icon="file-lines"
+    href="https://app.kambrium.com/logs"
+  >
+    Monitor your MCP server activity and debug issues
+  </Card>
 </CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card
+    title="Explore MCP Protocol"
+    icon="network-wired"
+    href="/api-reference/mcp-protocol/overview"
+  >
+    Learn about MCP protocol features
+  </Card>
+
+  <Card
+    title="Add More Integrations"
+    icon="plus"
+    href="/api-reference/mcp-servers/available"
+  >
+    Connect additional SaaS tools
+  </Card>
+
+  <Card
+    title="Production Setup"
+    icon="rocket"
+    href="/authentication/management-api"
+  >
+    Configure OAuth for production
+  </Card>
+</CardGroup>
+
+## Need Help?
+
+- 📖 **Documentation**: Browse our complete [API reference](/api-reference/introduction)
+- 💬 **Community**: Join our [Discord community](https://discord.gg/kambrium)
+- 🐛 **Issues**: Report bugs or request features on GitHub
+
+---
+
+<Note>
+  **Pro Tip**: Start with a simple integration like Pipedrive or Slack to get
+  familiar with the MCP protocol, then expand to more complex workflows.
+</Note>
