@@ -1,0 +1,55 @@
+/* Custom CSS for broader left sidebar */
+
+/* Make the sidebar wider using Mintlify's official identifiers */
+#sidebar {
+  width: 320px !important; /* Default is around 240px */
+  min-width: 320px !important;
+  max-width: 400px !important;
+}
+
+/* Using Mintlify's official sidebar identifiers from their docs */
+#sidebar-content {
+  width: 320px !important;
+  min-width: 320px !important;
+}
+
+/* Adjust the content area to accommodate wider sidebar */
+#content-area {
+  margin-left: 320px !important;
+}
+
+/* Alternative approaches using Mintlify's documented selectors */
+.sidebar {
+  width: 320px !important;
+  min-width: 320px !important;
+}
+
+.sidebar-content {
+  width: 320px !important;
+  min-width: 320px !important;
+}
+
+/* For responsive design - ensure it doesn't break on smaller screens */
+@media (max-width: 1200px) {
+  #sidebar {
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+  
+  #content-area {
+    margin-left: 280px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Keep default mobile behavior */
+  #sidebar {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+  }
+  
+  #content-area {
+    margin-left: 0 !important;
+  }
+} 
