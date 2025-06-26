@@ -16,6 +16,12 @@
       "700"
     ]
   },
+  "background": {
+    "color": {
+      "light": "#F9FAFB",
+      "dark": "#111827"
+    }
+  },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
