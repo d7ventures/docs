@@ -5,12 +5,7 @@
   "colors": {
     "primary": "#8470FF",
     "light": "#9C8CFF",
-    "dark": "#5D47DE",
-    "background": {
-      "light": "#F9FAFB",
-      "dark": "#111827"
-    },
-    "accent": "#67BFFF"
+    "dark": "#5D47DE"
   },
   "font": {
     "family": "Inter",
