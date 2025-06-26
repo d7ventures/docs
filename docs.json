@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "Kambrium Documentation",
+  "name": "Documentation - Kambrium AI",
   "colors": {
     "primary": "#8470FF",
     "light": "#9C8CFF",
@@ -22,17 +22,17 @@
       "dark": "#111827"
     }
   },
-  "favicon": "/kambrium_favicon.png",
+  "favicon": "/favicon.ico",
   "seo": {
     "indexHiddenPages": false
   },
   "metadata": {
-    "title": "Kambrium Documentation",
+    "title": "Documentation - Kambrium AI",
     "description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools",
-    "og:title": "Kambrium Documentation",
+    "og:title": "Documentation - Kambrium AI",
     "og:description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools",
     "og:image": "/logo/kambrium_black.png",
-    "twitter:title": "Kambrium Documentation",
+    "twitter:title": "Documentation - Kambrium AI",
     "twitter:description": "Complete guide to Kambrium's MCP (Model Context Protocol) platform for connecting AI applications to SaaS tools"
   },
   "navigation": {
