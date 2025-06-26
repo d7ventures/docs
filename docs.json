@@ -1,11 +1,25 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "theme": "maple",
+  "name": "Kambrium Documentation",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#8470FF",
+    "light": "#9C8CFF",
+    "dark": "#5D47DE",
+    "background": {
+      "light": "#F9FAFB",
+      "dark": "#111827"
+    },
+    "accent": "#67BFFF"
+  },
+  "font": {
+    "family": "Inter",
+    "weight": [
+      "400",
+      "500",
+      "600",
+      "700"
+    ]
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -58,19 +72,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Dashboard",
+          "href": "https://app.kambrium.com",
+          "icon": "chart-line"
         },
         {
           "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "href": "https://discord.gg/kambrium",
+          "icon": "discord"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Support",
+          "href": "mailto:support@kambrium.com",
+          "icon": "envelope"
         }
       ]
     }
@@ -83,20 +97,19 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@kambrium.com"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.kambrium.com"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/kambrium",
+      "linkedin": "https://linkedin.com/company/kambrium"
     }
   }
 }
