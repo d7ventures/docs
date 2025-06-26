@@ -1,501 +1,176 @@
 ---
-title: "MCP Server Runtime Access"
-description: "Authentication methods for accessing individual MCP servers during runtime"
+title: "MCP Server Runtime Authentication"
+description: "Authentication for MCP protocol operations and tool execution"
 ---
 
-## Overview
+# MCP Server Runtime Authentication
 
-**MCP servers** are protocol-compliant services that bridge external SaaS tools (like Salesforce, Slack, etc.) with your applications. Each MCP server requires proper authentication to access its capabilities using JWT tokens with `mcp.*` scopes.
+MCP servers require authentication for protocol operations, tool execution, and resource access using JWT tokens with MCP-specific scopes.
 
-<Info>
-  **Protocol Compliance:** All MCP servers implement the [Model Context Protocol
-  (MCP)](https://modelcontextprotocol.io) specification for secure, standardized
-  communication.
+## Authentication Context
 
-**Token Context:** Tokens must have `"context": "mcp_server_access"`
-
-</Info>
-
----
-
-## Authentication Architecture
-
-MCP servers support two authentication methods to access their runtime capabilities:
-
-<CardGroup cols={2}>
-  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
-    **Best for:** Applications requiring MCP protocol access
-    **Process:** Cognito OAuth flow with MCP-specific scopes
-    **Scopes:** `mcp.read`, `mcp.write`, `mcp.tools.execute`, `mcp.resources.read`, `mcp.prompts.read`
-    **Context:** `mcp_server_access` with `mcp_server_id`
-  </Card>
-
-  <Card title="Personal Access Tokens (PATs)" icon="key">
-    **Best for:** Direct MCP server access, development, testing
-    **Process:** JWT tokens created for specific MCP server access
-    **Scopes:** `mcp.read`, `mcp.write`, `mcp.tools.execute`, `mcp.resources.read`, `mcp.prompts.read`
-    **Context:** `mcp_server_access` with linked MCP server
-  </Card>
-</CardGroup>
-
----
-
-## OAuth 2.1 Authentication Flow
-
-### Step 1: Obtain OAuth Credentials
-
-Credentials are generated through the Management API when creating MCP server connections:
-
-<CodeGroup>
-```http Create MCP Connection (OAuth)
-POST /api/v1/mcp-servers
-Authorization: Bearer <management_token>
-Content-Type: application/json
-
-{
-"mcp_server": "pipedrive",
-"access_type": "write",
-"mcp_server_authentication_method": "oauth"
-}
-
-````
-
-```json Connection Response
-{
-  "success": true,
-  "data": {
-    "id": 445,
-    "oauth2_credentials": {
-      "client_id": "2f6ictccuujm5vj4dnen5kmf8q",
-      "client_secret": "b5c0g46d4js3q5n6ko7n9jk46ep3k44a8qog6o4oesfjgv4njh"
-    },
-    "mcp_server_id": 1,
-    "oauth_status": "active"
-  }
-}
-````
-
-</CodeGroup>
-
-### Step 2: Request MCP Access Token
-
-<CodeGroup>
-```http Token Request
-POST /oauth2/token
-Host: us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com
-Content-Type: application/x-www-form-urlencoded
-Authorization: Basic <base64(client_id:client_secret)>
-
-grant_type=client_credentials
-
-````
-
-```python Python Implementation
-import httpx
-import base64
-
-async def get_mcp_token(client_id: str, client_secret: str):
-    credentials = f"{client_id}:{client_secret}"
-    credentials_b64 = base64.b64encode(credentials.encode()).decode()
-
-    headers = {
-        "Authorization": f"Basic {credentials_b64}",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-
-    data = {"grant_type": "client_credentials"}
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/token",
-            headers=headers,
-            data=data
-        )
-        return response.json()["access_token"]
-````
-
-</CodeGroup>
-
-### Step 3: Access MCP Server
-
-Use the JWT token to access MCP server capabilities:
-
-```http
-GET /mcp/v1/tools/list
-Host: mcp-server.your-domain.com
-Authorization: Bearer <mcp_access_token>
-Content-Type: application/json
-```
-
----
-
-## Personal Access Tokens (PATs)
-
-### PAT Token Structure
-
-MCP Server PATs contain specific claims for runtime access:
+MCP server authentication uses tokens with `"context": "mcp_server_access"` to distinguish from Management API operations:
 
 ```json
 {
   "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
   "aud": "default-m2m-resource-server-z958ha",
-  "sub": "6",
   "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
-  "scopes": [
-    "mcp.read",
-    "mcp.write",
-    "mcp.tools.execute",
-    "mcp.resources.read",
-    "mcp.prompts.read"
-  ],
-  "token_use": "access",
-  "token_type": "pat",
+  "scopes": ["mcp.read", "mcp.write", "mcp.tools.execute"],
   "context": "mcp_server_access",
-  "mcp_server_id": 1,
-  "iat": 1750841754,
-  "exp": 1750941754
+  "mcp_server_id": 1
 }
 ```
 
-### Creating MCP PATs
+## Required Scopes
 
-PATs for MCP server access are created via Management API:
+| Scope                | Permissions                | MCP Operations                    |
+| -------------------- | -------------------------- | --------------------------------- |
+| `mcp.read`           | Read resources and prompts | `resources/list`, `prompts/list`  |
+| `mcp.write`          | Create/modify data         | Resource updates, data operations |
+| `mcp.tools.execute`  | Execute tools              | `tools/call` operations           |
+| `mcp.resources.read` | Access resources           | Resource content access           |
+| `mcp.prompts.read`   | Access prompts             | Prompt content and templates      |
 
-<CodeGroup>
-```http Create MCP Connection (PAT)
-POST /api/v1/mcp-servers
-Authorization: Bearer <management_token>
-Content-Type: application/json
-
-{
-"mcp_server": "pipedrive",
-"access_type": "write",
-"mcp_server_authentication_method": "bearer_token"
-}
-
-````
-
-```json PAT Response
-{
-  "success": true,
-  "data": {
-    "id": 445,
-    "oauth2_credentials": {
-      "client_secret": "eyJhbGciOiJSUzI1NiIsImtpZCI6InBhdC1rMSIsInR5cCI6IkpXVCJ9..."
-    },
-    "mcp_server_id": 1,
-    "authentication_method": "bearer_token"
-  }
-}
-````
-
-</CodeGroup>
-
----
-
-## MCP Protocol Scopes
-
-MCP servers require specific scopes for different protocol operations:
-
-<AccordionGroup>
-  <Accordion title="mcp.read" icon="eye">
-    **Protocol Operations:**
-    - `tools/list` - List available tools
-    - `resources/list` - List available resources
-    - `prompts/list` - List available prompts
-    
-    **Access:** Read-only MCP protocol operations
-  </Accordion>
-
-{" "}
-<Accordion title="mcp.write" icon="pencil">
-  **Protocol Operations:** - `resources/read` - Read resource contents -
-  `resources/subscribe` - Subscribe to resource changes - Basic MCP protocol
-  write operations **Access:** Read-write access to MCP resources
-</Accordion>
-
-{" "}
-<Accordion title="mcp.tools.execute" icon="play">
-  **Protocol Operations:** - `tools/call` - Execute specific tools -
-  Tool-specific execution permissions **Access:** Execute tools through MCP
-  protocol
-</Accordion>
-
-{" "}
-<Accordion title="mcp.resources.read" icon="file-text">
-  **Protocol Operations:** - `resources/read` - Read specific resource contents
-  - `resources/templates` - Access resource templates **Access:** Full resource
-  access capabilities
-</Accordion>
-
-  <Accordion title="mcp.prompts.read" icon="message-square">
-    **Protocol Operations:**
-    - `prompts/get` - Get specific prompt definitions
-    - `prompts/list` - List available prompts
-    
-    **Access:** Full prompt access capabilities
-  </Accordion>
-</AccordionGroup>
-
----
-
-## MCP Protocol Communication
+## MCP Protocol Authentication
 
 ### Initialize Connection
 
-All MCP communications start with protocol initialization:
-
-<CodeGroup>
-```json MCP Initialize Request
+```json
 {
   "jsonrpc": "2.0",
   "method": "initialize",
-  "id": 1,
   "params": {
     "protocolVersion": "2024-11-05",
     "capabilities": {
       "tools": {},
-      "resources": {},
-      "prompts": {}
+      "resources": {}
     },
     "clientInfo": {
-      "name": "your-client",
+      "name": "kambrium-mcp-client",
       "version": "1.0.0"
     }
-  }
+  },
+  "id": 1
 }
 ```
 
-```json Initialize Response
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "protocolVersion": "2024-11-05",
-    "capabilities": {
-      "tools": { "listChanged": true },
-      "resources": { "subscribe": true, "listChanged": true },
-      "prompts": { "listChanged": true }
-    },
-    "serverInfo": {
-      "name": "kambrium-mcp-server",
-      "version": "1.0.0"
-    }
-  }
-}
+### Authentication Header
+
+All MCP requests include JWT authentication:
+
+```
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-</CodeGroup>
+### Tool Execution
 
-### Tools Execution
-
-Execute SaaS tool operations through MCP protocol:
-
-<CodeGroup>
-```json Tools List Request
+```json
 {
   "jsonrpc": "2.0",
-  "method": "tools/list",
+  "method": "tools/call",
+  "params": {
+    "name": "get_contact",
+    "arguments": {
+      "contact_id": "123"
+    }
+  },
   "id": 2
 }
 ```
 
-```json Tool Call Request
+## Client ID Validation
+
+MCP servers extract the `client_id` from JWT tokens for user identification and access control:
+
+```python
+def validate_mcp_token(token: str) -> dict:
+    payload = jwt.decode(token, verify=True)
+
+    # Validate context
+    if payload.get("context") != "mcp_server_access":
+        raise AuthenticationError("Invalid token context")
+
+    # Validate scopes
+    required_scopes = ["mcp.read", "mcp.tools.execute"]
+    if not all(scope in payload.get("scopes", []) for scope in required_scopes):
+        raise AuthenticationError("Insufficient scopes")
+
+    return payload
+```
+
+## MCP Server Access Control
+
+### Server-Specific Tokens
+
+Tokens can be scoped to specific MCP servers using `mcp_server_id`:
+
+```json
 {
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "id": 3,
-  "params": {
-    "name": "pipedrive_get_deals",
-    "arguments": {
-      "status": "open",
-      "limit": 10
-    }
-  }
+  "mcp_server_id": 1,
+  "context": "mcp_server_access",
+  "scopes": ["mcp.tools.execute"]
 }
 ```
 
-</CodeGroup>
+### Multi-Server Access
 
----
+Tokens without `mcp_server_id` provide access to all authorized servers:
 
-## Authentication Examples
-
-### Client ID Based Access
-
-MCP servers use the `client_id` from JWT tokens to identify user access:
-
-<CodeGroup>
-```python Python MCP Client
-import httpx
-import json
-
-class MCPClient:
-def **init**(self, base_url: str, access_token: str):
-self.base_url = base_url
-self.headers = {
-"Authorization": f"Bearer {access_token}",
-"Content-Type": "application/json"
+```json
+{
+  "context": "mcp_server_access",
+  "scopes": ["mcp.read", "mcp.write"]
 }
+```
 
-    async def call_tool(self, tool_name: str, arguments: dict):
-        rpc_request = {
-            "jsonrpc": "2.0",
-            "method": "tools/call",
-            "id": 1,
-            "params": {
-                "name": tool_name,
-                "arguments": arguments
-            }
-        }
+## Error Responses
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.base_url}/mcp/v1/rpc",
-                headers=self.headers,
-                json=rpc_request
-            )
-            return response.json()
+### 401 Unauthorized
 
-````
-
-```javascript JavaScript MCP Client
-class MCPClient {
-  constructor(baseUrl, accessToken) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    };
-  }
-
-  async callTool(toolName, arguments) {
-    const rpcRequest = {
-      jsonrpc: "2.0",
-      method: "tools/call",
-      id: 1,
-      params: {
-        name: toolName,
-        arguments: arguments
-      }
-    };
-
-    const response = await fetch(`${this.baseUrl}/mcp/v1/rpc`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(rpcRequest)
-    });
-
-    return response.json();
-  }
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32600,
+    "message": "Unauthorized: Invalid or missing token"
+  },
+  "id": 1
 }
-````
+```
 
-</CodeGroup>
+### 403 Forbidden
 
----
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32601,
+    "message": "Forbidden: Insufficient scope for mcp.tools.execute"
+  },
+  "id": 1
+}
+```
 
-## Error Handling
+## Connection Security
 
-### MCP Protocol Errors
+### Transport Security
 
-<AccordionGroup>
-  <Accordion title="Authentication Errors" icon="shield-x">
-    **Invalid MCP Token**
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "error": {
-        "code": -32600,
-        "message": "Invalid authentication token",
-        "data": {
-          "token_status": "invalid",
-          "context_required": "mcp_server_access"
-        }
-      }
-    }
-    ```
-  </Accordion>
+- **WebSocket Secure (WSS)** for real-time communication
+- **HTTPS** for HTTP-based MCP operations
+- **TLS 1.3** minimum encryption
 
-  <Accordion title="Scope Errors" icon="x">
-    **Insufficient MCP Scopes**
-    ```json
-    {
-      "jsonrpc": "2.0", 
-      "id": 2,
-      "error": {
-        "code": -32603,
-        "message": "Insufficient scope for tools execution",
-        "data": {
-          "required_scope": "mcp.tools.execute",
-          "token_scopes": ["mcp.read", "mcp.write"]
-        }
-      }
-    }
-    ```
-  </Accordion>
+### Token Validation
 
-  <Accordion title="Protocol Errors" icon="alert-triangle">
-    **MCP Protocol Violations**
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 3,
-      "error": {
-        "code": -32601,
-        "message": "Method not found",
-        "data": {
-          "method": "invalid/method",
-          "available_methods": ["tools/list", "tools/call", "resources/list"]
-        }
-      }
-    }
-    ```
-  </Accordion>
-</AccordionGroup>
+1. **JWT signature verification** using JWKS
+2. **Scope validation** against required permissions
+3. **Context verification** for MCP access
+4. **Server ID validation** if specified
 
----
+## Best Practices
 
-## Security Best Practices
-
-### Token Security
-
-- **Scope Limitation:** Request only required MCP scopes (`mcp.read`, `mcp.tools.execute`, etc.)
-- **Token Storage:** Store MCP tokens securely, separate from Management API tokens
-- **Context Validation:** Ensure tokens have `"context": "mcp_server_access"`
-
-### Protocol Security
-
-- **Initialize First:** Always call `initialize` before other MCP operations
-- **Error Handling:** Implement proper error handling for MCP protocol errors
-- **Connection Pooling:** Reuse authenticated connections for efficiency
-
----
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Management API" href="/authentication/management-api" icon="cog">
-    Learn about Management API authentication for server lifecycle
-  </Card>
-
-{" "}
-<Card title="SaaS Integration" href="/authentication/integrations" icon="plug">
-  Understand SaaS tool authentication and OAuth flows
-</Card>
-
-{" "}
-<Card title="Complete Tutorial" href="/guides/mcp-setup" icon="rocket">
-  End-to-end setup walkthrough
-</Card>
-
-  <Card title="API Reference" href="/api-reference/introduction" icon="book">
-    Explore the complete API documentation
-  </Card>
-</CardGroup>
-
-<Note>
-  MCP server authentication provides secure, protocol-compliant access to
-  individual SaaS integrations using OAuth 2.1 standards.
-</Note>
+- **Use minimum required scopes** for specific operations
+- **Validate token context** before processing requests
+- **Implement proper error handling** for authentication failures
+- **Monitor authentication events** for security auditing
+- **Use secure transport** (WSS/HTTPS) for all communications
