@@ -1,202 +1,419 @@
 ---
 title: "Authentication Overview"
-description: "Understanding the Kambrium MCP Platform three-layer authentication architecture"
+description: "Understanding authentication across the 3-layer Kambrium MCP platform architecture"
 ---
 
-## Platform Overview
+## Overview
 
-Kambrium provides **Model Context Protocol (MCP) Servers** that enable you to connect AI applications to third-party SaaS tools through a standardized protocol. Our platform implements a three-layer architecture designed for secure, scalable access to your business data.
+**Kambrium's MCP Platform** implements a comprehensive authentication architecture across three distinct layers. Each layer has specific authentication methods and security protocols designed to ensure secure, scalable access to SaaS integrations.
 
-### What is MCP?
-
-The **Model Context Protocol** is an open standard that allows AI applications to securely connect to external data sources and tools. Kambrium provides MCP-compliant servers that translate between the standardized protocol and specific SaaS tool APIs.
-
----
-
-## Three-Layer Architecture
-
-The Kambrium platform operates through three distinct layers:
-
-```mermaid
-graph TD
-    A[Your Application] --> B[Management API]
-    B --> C[MCP Servers]
-    C --> D[SaaS Tools]
-
-    B1[FastAPI<br/>Lifecycle Management] --> B
-    C1[MCP Protocol<br/>Compliant Servers] --> C
-    D1[Salesforce<br/>Slack<br/>Notion<br/>etc.] --> D
-
-    style A fill:#8470FF,color:white
-    style B fill:#67BFFF,color:white
-    style C fill:#10B981,color:white
-    style D fill:#F59E0B,color:white
-```
-
-### Layer 1: Management API
-
-**Purpose:** High-level administrative interface for managing MCP Server connections
-
-**Implementation:** FastAPI-based service that handles the lifecycle of MCP Server connections
-
-**Core Operations:**
-
-- Get all available MCP Server integrations
-- Create new MCP Server connections
-- Get your MCP Server connections
-- Delete your MCP Server connections
-- Edit your MCP Server connections
-
-**Authentication:** OAuth 2.1 with JWT tokens
-
-### Layer 2: MCP Servers
-
-**Purpose:** Protocol-compliant servers that provide standardized access to SaaS tools
-
-**Implementation:** Individual servers for each SaaS integration (Salesforce, Slack, Notion, etc.)
-
-**Function:** Translate between MCP protocol and specific SaaS tool APIs
-
-**Standards Compliance:** Fully compliant with MCP specification
-
-### Layer 3: SaaS Tools
-
-**Purpose:** Your existing business applications and data sources
-
-**Examples:** Salesforce, Slack, Notion, GitHub, and other third-party services
-
-**Integration:** Connected via API keys or OAuth 2.1 flows
+<Info>
+  **OAuth 2.1 Compliance:** All authentication methods are built on OAuth 2.1
+  standards with PKCE, JWT tokens, and Cognito-based validation for
+  enterprise-grade security.
+</Info>
 
 ---
 
-## Authentication Methods
+## Three-Layer Authentication Architecture
 
-The platform supports two primary authentication approaches across all layers:
+The Kambrium platform authentication operates across three distinct layers:
 
-<CardGroup cols={2}>
-  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
-    **Best for:** Production applications, server-to-server communication **How
-    it works:** - Generate client_id and client_secret in web interface - Use
-    Client Credentials Grant flow for short-lived tokens - Automatic token
-    refresh capability - Industry standard security
+<CardGroup cols={3}>
+  <Card title="Management API" icon="gear">
+    **Purpose:** Administrative control over MCP server connections
+    **Authentication:** OAuth 2.1 Client Credentials + Personal Access Tokens
+    **Endpoints:** `/api/v1/mcp-servers`, `/api/v1/mcp-servers/available`
+    **Scopes:** `mgmt.read`, `mgmt.write`, `mgmt.admin`
   </Card>
 
-  <Card title="Personal Access Tokens (PATs)" icon="key">
-    **Best for:** Development, scripting, CI/CD pipelines **How it works:** -
-    Generate long-lived JWT tokens in web interface - Simple "copy-paste"
-    experience like traditional API keys - OAuth 2.1 compliant without
-    complexity - No token refresh logic required
+{" "}
+<Card title="MCP Server Runtime" icon="server">
+  **Purpose:** Protocol-compliant MCP server access **Authentication:** OAuth
+  2.1 Client Credentials + PAT tokens **Context:** `mcp_server_access` vs
+  `management_api` **Scopes:** `mcp.read`, `mcp.write`, `mcp.tools.execute`,
+  `mcp.resources.read`, `mcp.prompts.read`
+</Card>
+
+  <Card title="SaaS Tool Connections" icon="link">
+    **Purpose:** Third-party service authentication
+    **Authentication:** API Keys + External OAuth 2.1 flows
+    **Methods:** `auth_method: "api_key"` or `auth_method: "oauth"`
+    **Providers:** Pipedrive, Gmail, Salesforce, etc.
   </Card>
 </CardGroup>
 
 ---
 
-## Connection Flow Overview
+## Authentication Flow Types
 
-### Creating MCP Server Connections
+### Token-Based Authentication
 
-**Web Interface (Direct):**
+All platform layers use **JWT tokens** for authentication, with different token contexts:
 
-1. Navigate to the Kambrium web interface
-2. Select the SaaS tool you want to connect
-3. Choose authentication method:
-   - **API Key:** Paste your SaaS tool's API key directly
-   - **OAuth:** Click "Connect" to initiate OAuth flow with the SaaS provider
+<CodeGroup>
+```json Management API Token Context
+{
+  "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
+  "aud": "default-m2m-resource-server-z958ha",
+  "client_id": "pat_NlAKvulkVFJC1GQM-H4ZrHex-8fNoknL",
+  "scopes": ["mgmt.read", "mgmt.write", "mgmt.admin"],
+  "context": "management_api"
+}
+```
 
-**Management API (Programmatic):**
+```json MCP Server Token Context
+{
+  "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
+  "aud": "default-m2m-resource-server-z958ha",
+  "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
+  "scopes": ["mcp.read", "mcp.write", "mcp.tools.execute"],
+  "context": "mcp_server_access",
+  "mcp_server_id": 1
+}
+```
 
-1. Authenticate with Management API using OAuth token or PAT
-2. Call "Create MCP Server" endpoint with SaaS tool details
-3. For OAuth connections: Direct users to provided authorization URL
-4. For API key connections: Include API key in the creation request
+</CodeGroup>
 
-### Using MCP Servers
+### SaaS Tool Authentication Methods
 
-Once created, MCP Servers can be accessed through:
+<Tabs>
+  <Tab title="API Key Method">
+    **Default Method:** When `auth_method` is not specified, defaults to `"api_key"`
+    
+    ```json
+    {
+      "mcp_server": "pipedrive",
+      "access_type": "write", 
+      "api_key": "user-provided-api-key"
+      // auth_method defaults to "api_key"
+    }
+    ```
+  </Tab>
 
-**Standard MCP Protocol:**
-
-- WebSocket or HTTP connections
-- Full MCP specification compliance
-- OAuth 2.1 authentication required
-
-**Third-party Applications:**
-
-- Applications like Claude can connect via OAuth Authorization Code Flow
-- Users grant consent for third-party access
-- Standard OAuth scoping and permissions
+  <Tab title="OAuth Method">
+    **External OAuth:** Uses `SaaSOAuthProvider` for third-party OAuth flows
+    
+    ```json
+    {
+      "mcp_server": "pipedrive",
+      "access_type": "write",
+      "auth_method": "oauth"
+      // No api_key field allowed with OAuth
+    }
+    ```
+  </Tab>
+</Tabs>
 
 ---
 
 ## Security Architecture
 
-### Token-Based Security
+### Token Validation Process
 
-All API access uses **OAuth 2.1 JWT tokens** in the `Authorization: Bearer <token>` header:
+1. **JWT Signature Verification**: RSA signature validation against JWKS
+2. **Scope Authorization**: Endpoint-specific scope requirements (`mgmt.read`, `mcp.tools.execute`, etc.)
+3. **Context Validation**: Token context must match target system (`management_api` vs `mcp_server_access`)
+4. **Client ID Lookup**: Database validation using `client_id` from token payload
 
-- **Management API:** Requires valid JWT for all operations
-- **MCP Servers:** Require valid JWT for protocol access
-- **SaaS Tools:** Credentials managed securely by the platform
+### OAuth 2.1 Security Features
 
-### Delegation and Attribution
-
-For applications serving multiple users, the platform supports:
-
-- **Token Exchange (RFC 8693):** Secure delegation of access rights
-- **Proper Attribution:** Clear tracking of which user performed which actions
-- **Billing and Auditing:** Transparent usage tracking per user
+- **PKCE Required**: Code challenge/verifier for all OAuth flows
+- **Short-lived Tokens**: Automatic token refresh and rotation
+- **Audit Logging**: Complete authentication event tracking
+- **Security Monitoring**: Real-time threat detection and response
 
 ---
 
-## Integration Options
+## Integration Patterns
 
-<CardGroup cols={2}>
-  <Card title="Direct Integration" icon="user">
-    **Who:** Individuals or teams using MCP servers directly **Interface:** Web
-    dashboard for setup and configuration **Access:** Direct MCP protocol access
-    or third-party applications
-  </Card>
+### Management Operations
 
-  <Card title="Embedded Integration" icon="code">
-    **Who:** Developers building applications for their users **Interface:**
-    Management API for programmatic control **Access:** Token exchange for
-    secure user delegation
-  </Card>
-</CardGroup>
+Administrative operations for creating, updating, and managing MCP server connections through the Management API.
+
+### Runtime Access
+
+Protocol-compliant MCP server communication for tools execution, resources access, and prompts interaction.
+
+### SaaS Integration
+
+Direct authentication with third-party services using either API keys or OAuth flows, depending on service capabilities.
 
 ---
 
-## Getting Started
+## Authentication Flow Diagram
 
-Choose your integration path:
+Understanding how authentication flows between layers:
+
+<Tip>
+  ```mermaid graph TD subgraph "User/Application" U[User/Application] end
+  subgraph "Layer 1: Management API" MA[Management API] MA_AUTH[OAuth 2.1 /
+  PATs] end subgraph "Layer 2: MCP Servers" MCP[MCP Server] MCP_AUTH[OAuth
+  Tokens] end subgraph "Layer 3: SaaS Tools" SAAS[SaaS APIs] SAAS_AUTH[API Keys
+  / OAuth] end U -->|Authenticate| MA_AUTH MA_AUTH --> MA MA -->|Provides
+  Credentials| MCP_AUTH MCP_AUTH --> MCP MCP -->|Connects Using| SAAS_AUTH
+  SAAS_AUTH --> SAAS style MA_AUTH fill:#8470FF style MCP_AUTH fill:#8470FF
+  style SAAS_AUTH fill:#8470FF ```
+</Tip>
+
+---
+
+## Authentication Methods Overview
+
+### OAuth 2.1 Client Credentials
+
+**Used For:** Production applications, server-to-server communication
+
+<AccordionGroup>
+  <Accordion title="How It Works" icon="cog">
+    **Standard OAuth 2.1 Flow:**
+    1. Application requests access token using client credentials
+    2. Authorization server validates credentials
+    3. Short-lived access token returned
+    4. Token used for API access with automatic refresh
+    
+    **Security Benefits:**
+    - Industry standard security
+    - Short-lived tokens reduce exposure
+    - Automatic refresh capabilities
+    - Scope-based permission control
+  </Accordion>
+  
+  <Accordion title="Implementation" icon="code">
+    **Basic Flow:**
+    ```http
+    POST /oauth2/token
+    Content-Type: application/x-www-form-urlencoded
+    
+    grant_type=client_credentials&client_id=YOUR_ID&client_secret=YOUR_SECRET
+    ```
+    
+    **Response:**
+    ```json
+    {
+      "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "Bearer", 
+      "expires_in": 3600,
+      "scope": "mgmt.read mgmt.write"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Personal Access Tokens (PATs)
+
+**Used For:** Development, scripting, CI/CD pipelines
+
+<AccordionGroup>
+  <Accordion title="How It Works" icon="key">
+    **Long-Lived JWT Tokens:** 1. Generated through administrative interface 2.
+    Function like traditional API keys 3. No expiration or refresh logic
+    required 4. OAuth 2.1 compliant JWT format **Benefits:** - Simple
+    "copy-paste" experience - No token refresh logic needed - Immediate
+    usability - Perfect for development scenarios
+  </Accordion>
+
+  <Accordion title="Usage" icon="terminal">
+    **Direct API Access:** ```bash curl -H "Authorization: Bearer
+    YOUR_PAT_TOKEN" \ https://api.kambrium.com/v1/mcp-servers ``` **Security
+    Considerations:** - Store securely like any API key - Rotate regularly for
+    security - Use environment variables - Never commit to version control
+  </Accordion>
+</AccordionGroup>
+
+### Token Exchange (RFC 8693)
+
+**Used For:** Multi-user applications, user delegation
+
+<AccordionGroup>
+  <Accordion title="How It Works" icon="arrows-exchange">
+    **Secure Delegation Pattern:**
+    1. Application authenticates with Management API credentials
+    2. Requests delegated token for specific end user
+    3. Authorization server validates and issues user-specific token
+    4. Delegated token used for MCP server access
+    
+    **Attribution Benefits:**
+    - Proper user attribution for billing
+    - Clear audit trails
+    - No credential sharing
+    - Secure delegation patterns
+  </Accordion>
+  
+  <Accordion title="Implementation" icon="shield">
+    **Token Exchange Request:**
+    ```http
+    POST /oauth/token
+    Content-Type: application/x-www-form-urlencoded
+    
+    grant_type=urn:ietf:params:oauth:grant-type:token-exchange&
+    subject_token=MANAGEMENT_TOKEN&
+    audience=user:END_USER_ID
+    ```
+    
+    **Delegated Token Response:**
+    ```json
+    {
+      "access_token": "delegated_token_with_user_context",
+      "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+      "token_type": "Bearer",
+      "expires_in": 3600
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Error Handling
+
+### Common Authentication Errors
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized" icon="exclamation-triangle">
+    **Invalid or Expired Tokens** **Common Causes:** - Token has expired -
+    Invalid token signature - Token revoked **Resolution:** - Refresh token
+    using OAuth flow - Re-authenticate if refresh fails - Check token validity
+    and scopes
+  </Accordion>
+
+{" "}
+<Accordion title="403 Forbidden" icon="lock">
+  **Insufficient Permissions** **Common Causes:** - Token lacks required scopes
+  - Operation not permitted for user - Resource access restrictions
+  **Resolution:** - Request token with appropriate scopes - Verify user
+  permissions - Check resource access policies
+</Accordion>
+
+  <Accordion title="429 Rate Limited" icon="gauge">
+    **Too Many Requests** **Common Causes:** - Exceeded rate limits - Burst
+    limit reached - API quota exhausted **Resolution:** - Implement exponential
+    backoff - Respect rate limit headers - Consider request batching
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Best Practices
+
+### Token Management
+
+<AccordionGroup>
+  <Accordion title="Secure Storage" icon="database">
+    **Storage Guidelines:** - Use environment variables for tokens - Encrypt
+    tokens at rest when possible - Avoid logging tokens in application logs -
+    Implement secure token cleanup
+  </Accordion>
+
+{" "}
+<Accordion title="Token Lifecycle" icon="clock">
+  **Lifecycle Management:** - Monitor token expiration - Implement automatic
+  refresh - Handle refresh failures gracefully - Revoke unused tokens promptly
+</Accordion>
+
+  <Accordion title="Scope Management" icon="shield">
+    **Permission Control:** - Request minimum required scopes - Use read-only
+    scopes when possible - Regularly audit token permissions - Implement
+    principle of least privilege
+  </Accordion>
+</AccordionGroup>
+
+### Implementation Guidelines
+
+<AccordionGroup>
+  <Accordion title="Error Handling" icon="exclamation-circle">
+    **Robust Error Management:** - Implement retry logic with exponential
+    backoff - Handle all authentication error scenarios - Provide clear user
+    feedback - Log errors for monitoring and debugging
+  </Accordion>
+
+{" "}
+<Accordion title="Security Monitoring" icon="eye">
+  **Security Observability:** - Monitor authentication failures - Track unusual
+  access patterns - Implement alerting for security events - Regular security
+  audits
+</Accordion>
+
+  <Accordion title="Performance" icon="zap">
+    **Efficient Authentication:** - Cache valid tokens appropriately - Use
+    connection pooling - Implement efficient token refresh - Monitor
+    authentication latency
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Layer-Specific Authentication
+
+### Management API Authentication
+
+<Card title="Administrative Access" icon="cog">
+**For managing MCP server connections and platform administration**
+
+- **Methods:** OAuth 2.1 Client Credentials, PATs
+- **Scopes:** `mgmt.read`, `mgmt.write`, `mgmt.admin`
+- **Use Cases:** Server lifecycle, connection management, administrative operations
+
+[Learn More →](/authentication/management-api)
+
+</Card>
+
+### MCP Server Authentication
+
+<Card title="Runtime Access" icon="server">
+**For real-time communication with MCP servers using the protocol**
+
+- **Methods:** OAuth tokens, Token Exchange, PATs
+- **Protocols:** WebSocket Secure (WSS), HTTPS
+- **Use Cases:** Tool execution, data access, real-time integration
+
+[Learn More →](/authentication/mcp-server)
+
+</Card>
+
+### SaaS Tool Authentication
+
+<Card title="Integration Access" icon="plug">
+**For connecting to third-party SaaS tools and services**
+
+- **Methods:** API keys, OAuth 2.1 flows
+- **Security:** PKCE, state validation, secure storage
+- **Use Cases:** SaaS connectivity, credential management, OAuth flows
+
+[Learn More →](/authentication/integrations)
+
+</Card>
+
+---
+
+## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Management API" href="/authentication/management-api" icon="cog">
-    Learn about programmatic lifecycle management of MCP servers
+  <Card title="Quick Start Guide" href="/guides/mcp-setup" icon="rocket">
+    Get started with end-to-end authentication setup
   </Card>
 
 {" "}
-
-<Card title="MCP Server Access" href="/authentication/mcp-server" icon="server">
-  Understand how to connect and interact with MCP servers
+<Card title="API Reference" href="/api-reference/introduction" icon="book">
+  Explore detailed API documentation and examples
 </Card>
 
 {" "}
-
-<Card title="SaaS Integration" href="/authentication/integrations" icon="plug">
-  Set up connections to your business tools
+<Card title="Management API" href="/authentication/management-api" icon="cog">
+  Deep dive into Management API authentication
 </Card>
 
   <Card
-    title="Web Dashboard"
-    href="https://app.kambrium.com"
-    icon="external-link"
+    title="Security Best Practices"
+    href="/authentication/mcp-server"
+    icon="shield"
   >
-    Get started with our visual interface
+    Learn about security implementation patterns
   </Card>
 </CardGroup>
 
 <Note>
-  This architecture ensures secure, scalable access to your business data while
-  maintaining full compliance with MCP specifications and OAuth 2.1 standards.
+  The Kambrium authentication architecture ensures secure, scalable access
+  across all platform layers using industry-standard OAuth 2.1 protocols with
+  enhanced security measures.
 </Note>

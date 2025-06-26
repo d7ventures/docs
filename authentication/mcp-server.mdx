@@ -1,510 +1,453 @@
 ---
 title: "MCP Server Runtime Access"
-description: "How to connect to and interact with MCP Servers using the Model Context Protocol"
+description: "Authentication methods for accessing individual MCP servers during runtime"
 ---
 
 ## Overview
 
-**MCP Server Runtime Access** represents the core interaction with configured MCP Servers. Once you've created an MCP Server connection through the Management API, you can access it directly using the standardized Model Context Protocol.
+**MCP servers** are protocol-compliant services that bridge external SaaS tools (like Salesforce, Slack, etc.) with your applications. Each MCP server requires proper authentication to access its capabilities using JWT tokens with `mcp.*` scopes.
 
 <Info>
-All MCP Server runtime endpoints are fully compliant with the MCP specification and secured using OAuth 2.1 JWT tokens in the `Authorization: Bearer <token>` header.
+  **Protocol Compliance:** All MCP servers implement the [Model Context Protocol
+  (MCP)](https://modelcontextprotocol.io) specification for secure, standardized
+  communication.
+
+**Token Context:** Tokens must have `"context": "mcp_server_access"`
+
 </Info>
 
 ---
 
-## Runtime Access Methods
+## Authentication Architecture
 
-MCP Servers support multiple access patterns depending on your use case:
-
-### Direct Access
-
-**For individual users and direct integrations:**
+MCP servers support two authentication methods to access their runtime capabilities:
 
 <CardGroup cols={2}>
-  <Card title="Third-Party Applications" icon="external-link">
-    **Example:** Claude, other MCP-compatible applications **Flow:** OAuth 2.1
-    Authorization Code Flow with PKCE **Process:** User grants consent for
-    application to access MCP resources **Tokens:** Standard, short-lived OAuth
-    access tokens
+  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
+    **Best for:** Applications requiring MCP protocol access
+    **Process:** Cognito OAuth flow with MCP-specific scopes
+    **Scopes:** `mcp.read`, `mcp.write`, `mcp.tools.execute`, `mcp.resources.read`, `mcp.prompts.read`
+    **Context:** `mcp_server_access` with `mcp_server_id`
   </Card>
 
-  <Card title="Programmatic Access" icon="code">
-    **Use cases:** Direct API integration, custom applications **Options:**
-    OAuth Client Credentials or Personal Access Tokens **Implementation:**
-    Direct MCP protocol communication
+  <Card title="Personal Access Tokens (PATs)" icon="key">
+    **Best for:** Direct MCP server access, development, testing
+    **Process:** JWT tokens created for specific MCP server access
+    **Scopes:** `mcp.read`, `mcp.write`, `mcp.tools.execute`, `mcp.resources.read`, `mcp.prompts.read`
+    **Context:** `mcp_server_access` with linked MCP server
   </Card>
 </CardGroup>
 
-### Delegated Access
-
-**For applications serving multiple users:**
-
-<AccordionGroup>
-  <Accordion title="Token Exchange Flow" icon="arrows-exchange">
-    Uses OAuth 2.1 Token Exchange (RFC 8693) for secure delegation: 1.
-    **Application Authentication:** Your backend authenticates using Management
-    API credentials 2. **Token Exchange Request:** Request delegated token for
-    specific end-user 3. **Validation:** Auth server validates request and user
-    permissions 4. **Delegated Token:** Receive short-lived token with dual
-    attribution 5. **MCP Access:** Use delegated token for MCP server operations
-    **Security Benefits:** - Proper attribution for billing and auditing - Clear
-    tracking of end-user vs. application actions - Secure delegation without
-    credential sharing
-  </Accordion>
-</AccordionGroup>
-
 ---
 
-## Authentication for Runtime Access
+## OAuth 2.1 Authentication Flow
 
-### Personal Access Tokens (PATs)
+### Step 1: Obtain OAuth Credentials
 
-**Best for:** Development, testing, direct integrations
+Credentials are generated through the Management API when creating MCP server connections:
 
 <CodeGroup>
-```python Python Example
-import requests
+```http Create MCP Connection (OAuth)
+POST /api/v1/mcp-servers
+Authorization: Bearer <management_token>
+Content-Type: application/json
 
-# Use PAT for direct MCP server access
-
-token = "YOUR_PAT_TOKEN"
-mcp_endpoint = "https://mcp.kambrium.com/servers/your_server_id"
-
-headers = {"Authorization": f"Bearer {token}"}
-
-# Example MCP protocol request
-
-mcp_request = {
-"jsonrpc": "2.0",
-"id": 1,
-"method": "tools/list"
+{
+"mcp_server": "pipedrive",
+"access_type": "write",
+"mcp_server_authentication_method": "oauth"
 }
-
-response = requests.post(mcp_endpoint, headers=headers, json=mcp_request)
-tools = response.json()
 
 ````
 
-```javascript JavaScript Example
-const token = "YOUR_PAT_TOKEN";
-const mcpEndpoint = "https://mcp.kambrium.com/servers/your_server_id";
-
-const headers = { 'Authorization': `Bearer ${token}` };
-
-// Example MCP protocol request
-const mcpRequest = {
-  jsonrpc: "2.0",
-  id: 1,
-  method: "tools/list"
-};
-
-const response = await fetch(mcpEndpoint, {
-  method: 'POST',
-  headers: headers,
-  body: JSON.stringify(mcpRequest)
-});
-
-const tools = await response.json();
+```json Connection Response
+{
+  "success": true,
+  "data": {
+    "id": 445,
+    "oauth2_credentials": {
+      "client_id": "2f6ictccuujm5vj4dnen5kmf8q",
+      "client_secret": "b5c0g46d4js3q5n6ko7n9jk46ep3k44a8qog6o4oesfjgv4njh"
+    },
+    "mcp_server_id": 1,
+    "oauth_status": "active"
+  }
+}
 ````
 
 </CodeGroup>
 
-### OAuth Client Credentials
-
-**Best for:** Production applications requiring automatic token refresh
+### Step 2: Request MCP Access Token
 
 <CodeGroup>
-```python OAuth Flow
-def get_mcp_access_token(client_id, client_secret):
-    response = requests.post(
-        "https://auth.kambrium.com/oauth/token",
-        data={
-            "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "scope": "mcp:access"
-        }
-    )
-    return response.json()["access_token"]
+```http Token Request
+POST /oauth2/token
+Host: us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic <base64(client_id:client_secret)>
 
-# Get token and access MCP server
-
-token = get_mcp_access_token("your_client_id", "your_client_secret")
-headers = {"Authorization": f"Bearer {token}"}
-
-# MCP server interaction
-
-response = requests.post(
-"https://mcp.kambrium.com/servers/your_server_id",
-headers=headers,
-json={
-"jsonrpc": "2.0",
-"id": 1,
-"method": "tools/call",
-"params": {
-"name": "salesforce_search_contacts",
-"arguments": {"query": "Department:Sales"}
-}
-}
-)
+grant_type=client_credentials
 
 ````
+
+```python Python Implementation
+import httpx
+import base64
+
+async def get_mcp_token(client_id: str, client_secret: str):
+    credentials = f"{client_id}:{client_secret}"
+    credentials_b64 = base64.b64encode(credentials.encode()).decode()
+
+    headers = {
+        "Authorization": f"Basic {credentials_b64}",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    data = {"grant_type": "client_credentials"}
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/token",
+            headers=headers,
+            data=data
+        )
+        return response.json()["access_token"]
+````
+
 </CodeGroup>
 
-### Token Exchange for Delegation
+### Step 3: Access MCP Server
 
-**For applications acting on behalf of users:**
+Use the JWT token to access MCP server capabilities:
+
+```http
+GET /mcp/v1/tools/list
+Host: mcp-server.your-domain.com
+Authorization: Bearer <mcp_access_token>
+Content-Type: application/json
+```
+
+---
+
+## Personal Access Tokens (PATs)
+
+### PAT Token Structure
+
+MCP Server PATs contain specific claims for runtime access:
+
+```json
+{
+  "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
+  "aud": "default-m2m-resource-server-z958ha",
+  "sub": "6",
+  "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
+  "scopes": [
+    "mcp.read",
+    "mcp.write",
+    "mcp.tools.execute",
+    "mcp.resources.read",
+    "mcp.prompts.read"
+  ],
+  "token_use": "access",
+  "token_type": "pat",
+  "context": "mcp_server_access",
+  "mcp_server_id": 1,
+  "iat": 1750841754,
+  "exp": 1750941754
+}
+```
+
+### Creating MCP PATs
+
+PATs for MCP server access are created via Management API:
 
 <CodeGroup>
-```python Delegated Access
-def get_delegated_token(management_token, end_user_id):
-    response = requests.post(
-        "https://auth.kambrium.com/oauth/token",
-        data={
-            "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-            "subject_token": management_token,
-            "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-            "requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
-            "audience": f"user:{end_user_id}"
-        }
-    )
-    return response.json()["access_token"]
+```http Create MCP Connection (PAT)
+POST /api/v1/mcp-servers
+Authorization: Bearer <management_token>
+Content-Type: application/json
 
-# Use delegated token for MCP access
-delegated_token = get_delegated_token("your_management_token", "user123")
+{
+"mcp_server": "pipedrive",
+"access_type": "write",
+"mcp_server_authentication_method": "bearer_token"
+}
 
-# Token contains claims for both end-user (sub) and your application (azp)
-headers = {"Authorization": f"Bearer {delegated_token}"}
+````
 
-response = requests.post(
-    "https://mcp.kambrium.com/servers/user_server_id",
-    headers=headers,
-    json={
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "resources/read",
-        "params": {"uri": "salesforce://contacts/12345"}
-    }
-)
+```json PAT Response
+{
+  "success": true,
+  "data": {
+    "id": 445,
+    "oauth2_credentials": {
+      "client_secret": "eyJhbGciOiJSUzI1NiIsImtpZCI6InBhdC1rMSIsInR5cCI6IkpXVCJ9..."
+    },
+    "mcp_server_id": 1,
+    "authentication_method": "bearer_token"
+  }
+}
 ````
 
 </CodeGroup>
 
 ---
 
-## MCP Protocol Compliance
+## MCP Protocol Scopes
 
-### Standard MCP Methods
-
-All Kambrium MCP servers implement the full MCP specification:
+MCP servers require specific scopes for different protocol operations:
 
 <AccordionGroup>
-  <Accordion title="initialize" icon="play">
-    Establish connection and negotiate capabilities
+  <Accordion title="mcp.read" icon="eye">
+    **Protocol Operations:**
+    - `tools/list` - List available tools
+    - `resources/list` - List available resources
+    - `prompts/list` - List available prompts
     
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "method": "initialize",
-      "params": {
-        "protocolVersion": "2024-11-05",
-        "capabilities": {
-          "tools": {},
-          "resources": {}
-        },
-        "clientInfo": {
-          "name": "your-application",
-          "version": "1.0.0"
-        }
-      }
-    }
-    ```
-  </Accordion>
-  
-  <Accordion title="tools/list" icon="list">
-    List available tools for the connected SaaS integration
-    
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 2,
-      "method": "tools/list"
-    }
-    ```
-    
-    Returns integration-specific tools like `salesforce_search_contacts`, `slack_send_message`, etc.
-  </Accordion>
-  
-  <Accordion title="tools/call" icon="cog">
-    Execute specific tools with parameters
-    
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 3,
-      "method": "tools/call",
-      "params": {
-        "name": "salesforce_create_opportunity",
-        "arguments": {
-          "name": "Q1 Enterprise Deal",
-          "amount": 150000,
-          "close_date": "2024-03-31"
-        }
-      }
-    }
-    ```
-  </Accordion>
-  
-  <Accordion title="resources/list" icon="database">
-    List available data resources
-    
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 4,
-      "method": "resources/list"
-    }
-    ```
-  </Accordion>
-  
-  <Accordion title="resources/read" icon="file">
-    Read specific resource data
-    
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 5,
-      "method": "resources/read",
-      "params": {
-        "uri": "salesforce://accounts/001XX000003DHP0"
-      }
-    }
-    ```
-  </Accordion>
-</AccordionGroup>
-
-### Connection Types
-
-<Tabs>
-  <Tab title="WebSocket">
-    ```python
-    import websockets
-    import json
-    
-    async def connect_mcp_websocket():
-        uri = "wss://mcp.kambrium.com/servers/your_server_id"
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        async with websockets.connect(uri, extra_headers=headers) as websocket:
-            # Initialize MCP session
-            init_msg = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "clientInfo": {"name": "my-app", "version": "1.0.0"}
-                }
-            }
-            
-            await websocket.send(json.dumps(init_msg))
-            response = await websocket.recv()
-            print(f"Initialize response: {response}")
-    ```
-  </Tab>
-  
-  <Tab title="HTTP/HTTPS">
-    ```python
-    import requests
-    
-    def call_mcp_http():
-        endpoint = "https://mcp.kambrium.com/servers/your_server_id"
-        headers = {"Authorization": f"Bearer {token}"}
-        
-        # MCP over HTTP
-        mcp_request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        }
-        
-        response = requests.post(endpoint, headers=headers, json=mcp_request)
-        return response.json()
-    ```
-  </Tab>
-</Tabs>
-
----
-
-## Third-Party Application Integration
-
-### OAuth Authorization Code Flow
-
-For applications like Claude accessing user's MCP servers:
-
-<AccordionGroup>
-  <Accordion title="Application Registration" icon="plus">
-    Third-party applications register with Kambrium to obtain OAuth credentials
-    and configure redirect URIs for secure authorization flows.
+    **Access:** Read-only MCP protocol operations
   </Accordion>
 
 {" "}
-
-<Accordion title="User Consent Flow" icon="user-check">
-  1. **Authorization Request:** Application redirects user to Kambrium OAuth
-  endpoint 2. **User Login:** User authenticates with Kambrium 3. **Consent
-  Screen:** User grants permission for application to access specific MCP
-  servers 4. **Authorization Code:** Kambrium redirects back with authorization
-  code 5. **Token Exchange:** Application exchanges code for access token 6.
-  **MCP Access:** Application uses token to access authorized MCP servers
+<Accordion title="mcp.write" icon="pencil">
+  **Protocol Operations:** - `resources/read` - Read resource contents -
+  `resources/subscribe` - Subscribe to resource changes - Basic MCP protocol
+  write operations **Access:** Read-write access to MCP resources
 </Accordion>
 
-  <Accordion title="PKCE Security" icon="shield">
-    All Authorization Code flows use PKCE (Proof Key for Code Exchange) for
-    enhanced security, preventing authorization code interception attacks.
+{" "}
+<Accordion title="mcp.tools.execute" icon="play">
+  **Protocol Operations:** - `tools/call` - Execute specific tools -
+  Tool-specific execution permissions **Access:** Execute tools through MCP
+  protocol
+</Accordion>
+
+{" "}
+<Accordion title="mcp.resources.read" icon="file-text">
+  **Protocol Operations:** - `resources/read` - Read specific resource contents
+  - `resources/templates` - Access resource templates **Access:** Full resource
+  access capabilities
+</Accordion>
+
+  <Accordion title="mcp.prompts.read" icon="message-square">
+    **Protocol Operations:**
+    - `prompts/get` - Get specific prompt definitions
+    - `prompts/list` - List available prompts
+    
+    **Access:** Full prompt access capabilities
   </Accordion>
 </AccordionGroup>
 
-### Example Integration
+---
+
+## MCP Protocol Communication
+
+### Initialize Connection
+
+All MCP communications start with protocol initialization:
 
 <CodeGroup>
-```python Third-Party App Flow
-import hashlib
-import base64
-import secrets
-
-# Generate PKCE parameters
-
-code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode('utf-8').strip('=')
-code_challenge = base64.urlsafe_b64encode(
-hashlib.sha256(code_verifier.encode('utf-8')).digest()
-).decode('utf-8').strip('=')
-
-# Step 1: Redirect user to authorization URL
-
-auth_url = (
-"https://auth.kambrium.com/oauth/authorize"
-"?response_type=code"
-"&client_id=your_client_id"
-"&redirect_uri=https://yourapp.com/callback"
-"&scope=mcp:access"
-"&code_challenge=" + code_challenge
-"&code_challenge_method=S256"
-)
-
-# User visits auth_url and grants consent
-
-# Step 2: Exchange authorization code for token
-
-def exchange_code_for_token(authorization_code):
-response = requests.post(
-"https://auth.kambrium.com/oauth/token",
-data={
-"grant_type": "authorization_code",
-"client_id": "your_client_id",
-"client_secret": "your_client_secret",
-"code": authorization_code,
-"redirect_uri": "https://yourapp.com/callback",
-"code_verifier": code_verifier
+```json MCP Initialize Request
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "id": 1,
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "tools": {},
+      "resources": {},
+      "prompts": {}
+    },
+    "clientInfo": {
+      "name": "your-client",
+      "version": "1.0.0"
+    }
+  }
 }
-)
-return response.json()["access_token"]
+```
 
-# Step 3: Use token to access MCP servers
+```json Initialize Response
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {
+      "tools": { "listChanged": true },
+      "resources": { "subscribe": true, "listChanged": true },
+      "prompts": { "listChanged": true }
+    },
+    "serverInfo": {
+      "name": "kambrium-mcp-server",
+      "version": "1.0.0"
+    }
+  }
+}
+```
 
-def access_user_mcp_servers(access_token):
-headers = {"Authorization": f"Bearer {access_token}"}
+</CodeGroup>
 
-    # List user's accessible MCP servers
-    servers_response = requests.get(
-        "https://api.kambrium.com/v1/accessible-servers",
-        headers=headers
-    )
+### Tools Execution
 
-    # Access specific MCP server
-    mcp_response = requests.post(
-        "https://mcp.kambrium.com/servers/user_server_id",
-        headers=headers,
-        json={
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list"
-        }
-    )
+Execute SaaS tool operations through MCP protocol:
 
-    return mcp_response.json()
+<CodeGroup>
+```json Tools List Request
+{
+  "jsonrpc": "2.0",
+  "method": "tools/list",
+  "id": 2
+}
+```
 
-````
+```json Tool Call Request
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "id": 3,
+  "params": {
+    "name": "pipedrive_get_deals",
+    "arguments": {
+      "status": "open",
+      "limit": 10
+    }
+  }
+}
+```
+
 </CodeGroup>
 
 ---
 
-## Error Handling and Debugging
+## Authentication Examples
 
-### Common MCP Errors
+### Client ID Based Access
+
+MCP servers use the `client_id` from JWT tokens to identify user access:
+
+<CodeGroup>
+```python Python MCP Client
+import httpx
+import json
+
+class MCPClient:
+def **init**(self, base_url: str, access_token: str):
+self.base_url = base_url
+self.headers = {
+"Authorization": f"Bearer {access_token}",
+"Content-Type": "application/json"
+}
+
+    async def call_tool(self, tool_name: str, arguments: dict):
+        rpc_request = {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "id": 1,
+            "params": {
+                "name": tool_name,
+                "arguments": arguments
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/mcp/v1/rpc",
+                headers=self.headers,
+                json=rpc_request
+            )
+            return response.json()
+
+````
+
+```javascript JavaScript MCP Client
+class MCPClient {
+  constructor(baseUrl, accessToken) {
+    this.baseUrl = baseUrl;
+    this.headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async callTool(toolName, arguments) {
+    const rpcRequest = {
+      jsonrpc: "2.0",
+      method: "tools/call",
+      id: 1,
+      params: {
+        name: toolName,
+        arguments: arguments
+      }
+    };
+
+    const response = await fetch(`${this.baseUrl}/mcp/v1/rpc`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(rpcRequest)
+    });
+
+    return response.json();
+  }
+}
+````
+
+</CodeGroup>
+
+---
+
+## Error Handling
+
+### MCP Protocol Errors
 
 <AccordionGroup>
-  <Accordion title="Authentication Errors" icon="exclamation-triangle">
-    **401 Unauthorized:**
-    - Invalid or expired token
-    - Token lacks required scopes
-
-    **Solution:** Refresh token or verify scopes
-
+  <Accordion title="Authentication Errors" icon="shield-x">
+    **Invalid MCP Token**
     ```json
     {
       "jsonrpc": "2.0",
       "id": 1,
       "error": {
         "code": -32600,
-        "message": "Invalid token",
-        "data": {"error_type": "authentication_failed"}
+        "message": "Invalid authentication token",
+        "data": {
+          "token_status": "invalid",
+          "context_required": "mcp_server_access"
+        }
       }
     }
     ```
   </Accordion>
 
-  <Accordion title="Protocol Errors" icon="exclamation-circle">
-    **Method not found:**
-    - Invalid MCP method called
-    - Method not supported by integration
+  <Accordion title="Scope Errors" icon="x">
+    **Insufficient MCP Scopes**
+    ```json
+    {
+      "jsonrpc": "2.0", 
+      "id": 2,
+      "error": {
+        "code": -32603,
+        "message": "Insufficient scope for tools execution",
+        "data": {
+          "required_scope": "mcp.tools.execute",
+          "token_scopes": ["mcp.read", "mcp.write"]
+        }
+      }
+    }
+    ```
+  </Accordion>
 
-    **Invalid parameters:**
-    - Missing required arguments
-    - Invalid argument types
-
+  <Accordion title="Protocol Errors" icon="alert-triangle">
+    **MCP Protocol Violations**
     ```json
     {
       "jsonrpc": "2.0",
-      "id": 1,
+      "id": 3,
       "error": {
         "code": -32601,
         "message": "Method not found",
-        "data": {"method": "invalid_method"}
-      }
-    }
-    ```
-  </Accordion>
-
-  <Accordion title="SaaS Integration Errors" icon="plug">
-    **Upstream API errors:**
-    - SaaS tool rate limits
-    - Invalid SaaS credentials
-    - SaaS tool service unavailable
-
-    ```json
-    {
-      "jsonrpc": "2.0",
-      "id": 1,
-      "error": {
-        "code": -32000,
-        "message": "Upstream service error",
         "data": {
-          "service": "salesforce",
-          "error": "Rate limit exceeded"
+          "method": "invalid/method",
+          "available_methods": ["tools/list", "tools/call", "resources/list"]
         }
       }
     }
@@ -512,157 +455,47 @@ headers = {"Authorization": f"Bearer {access_token}"}
   </Accordion>
 </AccordionGroup>
 
-### Debugging Tips
-
-<CodeGroup>
-```python Connection Testing
-def test_mcp_connection(endpoint, token):
-    """Test basic MCP server connectivity"""
-    headers = {"Authorization": f"Bearer {token}"}
-
-    try:
-        # Test initialize
-        init_response = requests.post(
-            endpoint,
-            headers=headers,
-            json={
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {},
-                    "clientInfo": {"name": "test", "version": "1.0.0"}
-                }
-            }
-        )
-
-        if init_response.status_code == 200:
-            print("✓ MCP server connection successful")
-
-            # Test tools list
-            tools_response = requests.post(
-                endpoint,
-                headers=headers,
-                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
-            )
-
-            if tools_response.status_code == 200:
-                tools = tools_response.json().get("result", {}).get("tools", [])
-                print(f"✓ Available tools: {len(tools)}")
-                return True
-
-        print(f"✗ Connection failed: {init_response.status_code}")
-        return False
-
-    except Exception as e:
-        print(f"✗ Connection error: {e}")
-        return False
-````
-
-</CodeGroup>
-
 ---
 
-## Performance and Best Practices
+## Security Best Practices
 
-### Connection Management
+### Token Security
 
-<AccordionGroup>
-  <Accordion title="Connection Pooling" icon="network">
-    Reuse connections when possible to reduce overhead:
-    
-    ```python
-    import requests
-    from requests.adapters import HTTPAdapter
-    from urllib3.util.retry import Retry
-    
-    class MCPClient:
-        def __init__(self, endpoint, token):
-            self.endpoint = endpoint
-            self.session = requests.Session()
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
-            
-            # Configure retries and connection pooling
-            retry_strategy = Retry(
-                total=3,
-                backoff_factor=1,
-                status_forcelist=[429, 500, 502, 503, 504]
-            )
-            adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10)
-            self.session.mount("https://", adapter)
-    ```
-  </Accordion>
-  
-  <Accordion title="Rate Limiting" icon="gauge">
-    Implement proper rate limiting and backoff:
-    
-    ```python
-    import time
-    from functools import wraps
-    
-    def rate_limited(max_calls_per_minute=60):
-        def decorator(func):
-            calls = []
-            
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                now = time.time()
-                # Remove calls older than 1 minute
-                calls[:] = [call_time for call_time in calls if now - call_time < 60]
-                
-                if len(calls) >= max_calls_per_minute:
-                    sleep_time = 60 - (now - calls[0])
-                    time.sleep(sleep_time)
-                
-                calls.append(now)
-                return func(*args, **kwargs)
-            
-            return wrapper
-        return decorator
-    
-    @rate_limited(max_calls_per_minute=50)
-    def call_mcp_tool(client, tool_name, arguments):
-        return client.call_tool(tool_name, arguments)
-    ```
-  </Accordion>
-</AccordionGroup>
+- **Scope Limitation:** Request only required MCP scopes (`mcp.read`, `mcp.tools.execute`, etc.)
+- **Token Storage:** Store MCP tokens securely, separate from Management API tokens
+- **Context Validation:** Ensure tokens have `"context": "mcp_server_access"`
+
+### Protocol Security
+
+- **Initialize First:** Always call `initialize` before other MCP operations
+- **Error Handling:** Implement proper error handling for MCP protocol errors
+- **Connection Pooling:** Reuse authenticated connections for efficiency
 
 ---
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card
-    title="SaaS Integration Setup"
-    href="/authentication/integrations"
-    icon="plug"
-  >
-    Learn how to configure specific SaaS tool connections
+  <Card title="Management API" href="/authentication/management-api" icon="cog">
+    Learn about Management API authentication for server lifecycle
   </Card>
 
 {" "}
-
-<Card title="Management API" href="/authentication/management-api" icon="cog">
-  Create and manage MCP server connections programmatically
+<Card title="SaaS Integration" href="/authentication/integrations" icon="plug">
+  Understand SaaS tool authentication and OAuth flows
 </Card>
 
 {" "}
-
 <Card title="Complete Tutorial" href="/guides/mcp-setup" icon="rocket">
   End-to-end setup walkthrough
 </Card>
 
-  <Card
-    title="MCP Specification"
-    href="https://spec.modelcontextprotocol.io"
-    icon="external-link"
-  >
-    Official Model Context Protocol documentation
+  <Card title="API Reference" href="/api-reference/introduction" icon="book">
+    Explore the complete API documentation
   </Card>
 </CardGroup>
 
 <Note>
-  MCP Server runtime access provides secure, standards-compliant interaction
-  with your SaaS tools through the Model Context Protocol specification.
+  MCP server authentication provides secure, protocol-compliant access to
+  individual SaaS integrations using OAuth 2.1 standards.
 </Note>

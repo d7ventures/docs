@@ -1,554 +1,482 @@
 ---
-title: "SaaS Tool Connections"
-description: "How to connect your SaaS tools to Kambrium MCP Servers using API keys or OAuth"
+title: "SaaS Tool Authentication"
+description: "Authentication methods and flows for connecting to third-party SaaS tools"
 ---
 
 ## Overview
 
-**SaaS Tool Connections** represent the authentication layer between Kambrium MCP Servers and your business applications. When creating an MCP Server, you must provide credentials to connect to the underlying SaaS tool - either through API keys or OAuth authorization.
+**SaaS Tool Authentication** is the process of securely connecting third-party services (like Salesforce, Slack, Pipedrive) to the Kambrium platform. Each SaaS tool connection requires proper authentication to ensure secure data access through the Management API.
 
 <Info>
-  SaaS tool connections are managed through the Management API during MCP Server
-  creation, with credentials securely stored and managed by the platform.
+**Two Authentication Methods:** SaaS tools support either **API Key** authentication or **OAuth 2.1** flows depending on the service capabilities and security requirements.
+
+**Schema Validation:** The Management API enforces strict validation through Pydantic schema validation - `api_key` and `auth_method: "oauth"` cannot be used together (422 error).
+
 </Info>
 
 ---
 
-## Connection Methods
+## Authentication Methods
 
-Kambrium supports two primary methods for connecting to SaaS tools:
+Kambrium supports two primary methods for authenticating with SaaS tools:
 
 <CardGroup cols={2}>
-  <Card title="API Key Connection" icon="key">
-    **How it works:** - You provide your SaaS tool's API key directly -
-    Credentials are securely stored during MCP Server creation - Immediate
-    connection without additional authorization steps **Best for:** - SaaS tools
-    with API key authentication - Quick setup and testing - Automated
-    integrations
+  <Card title="API Key Authentication" icon="key">
+    **Best for:** Services with API key support, development environments
+    **Default:** When `auth_method` is not specified, defaults to `"api_key"`
+    **Process:** Direct API key storage with immediate verification
+    **Schema:** Requires `api_key` field when `auth_method: "api_key"`, rejects `api_key` when `auth_method: "oauth"`
   </Card>
 
-  <Card title="OAuth 2.1 Connection" icon="shield-check">
-    **How it works:** - Kambrium initiates OAuth flow with the SaaS provider -
-    You grant consent through the SaaS tool's authorization page - OAuth tokens
-    are securely received and stored **Best for:** - SaaS tools requiring OAuth
-    authorization - Enhanced security with scoped permissions - User-consent
-    based access
+  <Card title="OAuth 2.1 Flows" icon="shield-check">
+    **Best for:** Production environments, enhanced security
+    **Process:** External OAuth flows via `SaaSOAuthProvider` model
+    **Security:** PKCE-enabled authorization with token refresh (where supported)
+    **Schema:** Requires `auth_method: "oauth"`, rejects `api_key` field (422 validation error)
   </Card>
 </CardGroup>
 
 ---
 
-## API Key Connections
+## API Key Authentication
 
-### Direct Web Interface
+### Default Authentication Method
 
-For users creating connections through the Kambrium web interface:
-
-1. **Select Integration:** Choose the SaaS tool you want to connect
-2. **Choose API Key Method:** Select "API Key" authentication
-3. **Provide Credentials:** Paste your API key and any required configuration
-4. **Create Connection:** MCP Server is created with secure credential storage
-
-### Management API
-
-For programmatic creation of API key connections:
+API key authentication is the default when no `auth_method` is specified:
 
 <CodeGroup>
-```python Salesforce API Key
-import requests
+```http Default API Key Connection
+POST /api/v1/mcp-servers
+Authorization: Bearer <management_token>
+Content-Type: application/json
 
-# Create Salesforce MCP server with API key
-
-response = requests.post(
-"https://api.kambrium.com/v1/mcp-servers",
-headers={"Authorization": f"Bearer {management_token}"},
-json={
-"integration_type": "salesforce",
-"name": "Production Salesforce",
-"auth_method": "api_key",
-"credentials": {
-"api_key": "user_salesforce_api_key",
-"instance_url": "https://company.salesforce.com"
+{
+"mcp_server": "pipedrive",
+"access_type": "write",
+"api_key": "user-provided-api-key-from-pipedrive"
+// auth_method defaults to "api_key"
 }
+
+````
+
+```http Explicit API Key Connection
+POST /api/v1/mcp-servers
+Authorization: Bearer <management_token>
+Content-Type: application/json
+
+{
+  "mcp_server": "pipedrive",
+  "access_type": "write",
+  "auth_method": "api_key",
+  "api_key": "user-provided-api-key-from-pipedrive"
 }
-)
-
-server_info = response.json()
-print(f"Created MCP server: {server_info['id']}")
-
-````
-
-```python Generic SaaS Tool
-# Template for API key connections
-def create_api_key_connection(integration_type, name, api_key, additional_config=None):
-    payload = {
-        "integration_type": integration_type,
-        "name": name,
-        "auth_method": "api_key",
-        "credentials": {
-            "api_key": api_key
-        }
-    }
-
-    # Add any additional configuration
-    if additional_config:
-        payload["credentials"].update(additional_config)
-
-    response = requests.post(
-        "https://api.kambrium.com/v1/mcp-servers",
-        headers={"Authorization": f"Bearer {management_token}"},
-        json=payload
-    )
-
-    return response.json()
-
-# Example usage
-server = create_api_key_connection(
-    "slack",
-    "Team Slack",
-    "xoxb-your-slack-bot-token"
-)
 ````
 
 </CodeGroup>
 
-### Security Considerations
+### API Key Connection Response
 
-<AccordionGroup>
-  <Accordion title="API Key Storage" icon="database">
-    - All API keys are encrypted at rest using industry-standard encryption
-    - Keys are never logged or exposed in API responses
-    - Access is restricted to authorized MCP Server operations only
-    - Keys can be rotated by updating the MCP Server configuration
-  </Accordion>
-  
-  <Accordion title="Credential Rotation" icon="refresh">
-    ```python
-    # Update API key for existing MCP server
-    response = requests.patch(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {management_token}"},
-        json={
-            "credentials": {
-                "api_key": "new_rotated_api_key"
-            }
-        }
-    )
-    ```
-  </Accordion>
-</AccordionGroup>
-
----
-
-## OAuth 2.1 Connections
-
-### OAuth Flow Overview
-
-1. **Initiate Connection:** Create MCP Server with OAuth method
-2. **Authorization URL:** Receive unique authorization URL
-3. **User Consent:** Navigate to SaaS provider's consent page
-4. **Grant Access:** Authorize Kambrium to access your SaaS account
-5. **Complete Setup:** OAuth tokens are securely stored
-
-### Direct Web Interface
-
-For users creating OAuth connections through the web interface:
-
-1. **Select Integration:** Choose the SaaS tool requiring OAuth
-2. **Choose OAuth Method:** Select "OAuth" authentication
-3. **Authorize Access:** Click "Connect to [SaaS Provider]" button
-4. **Grant Permissions:** Complete OAuth flow on SaaS provider's site
-5. **Confirmation:** Return to Kambrium with successful connection
-
-### Management API OAuth Flow
-
-<CodeGroup>
-```python Initiate OAuth Connection
-# Step 1: Create MCP server with OAuth method
-response = requests.post(
-    "https://api.kambrium.com/v1/mcp-servers",
-    headers={"Authorization": f"Bearer {management_token}"},
-    json={
-        "integration_type": "notion",
-        "name": "Team Notion Workspace",
-        "auth_method": "oauth"
-    }
-)
-
-server_info = response.json()
-server_id = server_info["id"]
-auth_url = server_info["auth_url"]
-
-print(f"Direct user to: {auth_url}")
-
-````
-
-```python Monitor OAuth Completion
-import time
-
-def wait_for_oauth_completion(server_id, management_token, timeout=300):
-    """Wait for OAuth authorization to complete"""
-    start_time = time.time()
-
-    while time.time() - start_time < timeout:
-        response = requests.get(
-            f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-            headers={"Authorization": f"Bearer {management_token}"}
-        )
-
-        server_status = response.json()["status"]
-
-        if server_status == "active":
-            print("✓ OAuth authorization completed successfully")
-            return True
-        elif server_status == "failed":
-            print("✗ OAuth authorization failed")
-            return False
-
-        print(f"Waiting for authorization... Status: {server_status}")
-        time.sleep(5)
-
-    print("✗ OAuth authorization timed out")
-    return False
-
-# Usage
-success = wait_for_oauth_completion(server_id, management_token)
-````
-
-</CodeGroup>
-
-### White Label OAuth Implementation
-
-For applications serving their own users, Kambrium provides customizable OAuth flows:
-
-<CodeGroup>
-```python Custom OAuth Branding
-# Create OAuth connection with custom branding
-response = requests.post(
-    "https://api.kambrium.com/v1/mcp-servers",
-    headers={"Authorization": f"Bearer {management_token}"},
-    json={
-        "integration_type": "slack",
-        "name": "User Slack Workspace",
-        "auth_method": "oauth",
-        "oauth_config": {
-            "redirect_uri": "https://yourapp.com/oauth/callback",
-            "branding": {
-                "app_name": "Your Application Name",
-                "logo_url": "https://yourapp.com/logo.png"
-            }
-        }
-    }
-)
-
-# The returned auth_url will maintain your application's branding
-
-auth_url = response.json()["auth_url"]
-
-````
-
-```python Handle OAuth Callbacks
-from flask import Flask, request, redirect
-
-app = Flask(__name__)
-
-@app.route('/oauth/callback')
-def oauth_callback():
-    # OAuth authorization code is handled automatically by Kambrium
-    # Check MCP server status to confirm completion
-
-    server_id = request.args.get('server_id')
-
-    # Verify server is now active
-    response = requests.get(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {management_token}"}
-    )
-
-    if response.json()["status"] == "active":
-        return redirect("/success")
-    else:
-        return redirect("/error")
-````
-
-</CodeGroup>
-
----
-
-## User Delegation for Applications
-
-### Token Exchange for User-Specific Access
-
-When building applications that serve multiple users, use OAuth Token Exchange (RFC 8693) for secure delegation:
-
-<CodeGroup>
-```python Application User Flow
-# For Agent Builders creating connections for their users
-def create_user_connection(end_user_id, integration_type, auth_method, credentials=None):
-    # Step 1: Get delegated token for the specific user
-    delegated_token = get_delegated_token(management_token, end_user_id)
-    
-    # Step 2: Create MCP server using delegated token
-    payload = {
-        "integration_type": integration_type,
-        "name": f"User {end_user_id} {integration_type}",
-        "auth_method": auth_method
-    }
-    
-    if auth_method == "api_key" and credentials:
-        payload["credentials"] = credentials
-    
-    response = requests.post(
-        "https://api.kambrium.com/v1/mcp-servers",
-        headers={"Authorization": f"Bearer {delegated_token}"},
-        json=payload
-    )
-    
-    return response.json()
-
-def get_delegated_token(management_token, end_user_id):
-"""Get delegated token for specific user"""
-response = requests.post(
-"https://auth.kambrium.com/oauth/token",
-data={
-"grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-"subject_token": management_token,
-"subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-"requested_token_type": "urn:ietf:params:oauth:token-type:access_token",
-"audience": f"user:{end_user_id}"
+```json
+{
+  "success": true,
+  "data": {
+    "id": 445,
+    "mcp_server": "pipedrive",
+    "access_type": "write",
+    "api_key_verification_status": "pending",
+    "oauth2_client_id": "2f6ictccuujm5vj4dnen5kmf8q",
+    "oauth2_client_secret": "generated_for_mcp_access",
+    "mcp_server_access_status": "active",
+    "agent_enabled": true
+  }
 }
-)
-return response.json()["access_token"]
+```
 
-# Usage
+### Schema Validation
 
-user_server = create_user_connection(
-"user123",
-"salesforce",
-"api_key",
-{"api_key": "user_provided_key", "instance_url": "https://user.salesforce.com"}
-)
-
-````
-</CodeGroup>
-
-### Benefits of Token Exchange
+The Management API enforces strict schema validation for API key connections:
 
 <AccordionGroup>
-  <Accordion title="Attribution and Billing" icon="chart-line">
-    - Clear tracking of which end-user performed which actions
-    - Proper attribution for billing and usage analytics
-    - Audit trails showing both application and user context
-    - Token contains claims for both end-user (sub) and application (azp)
+  <Accordion title="Valid API Key Schema" icon="check">
+    **Required Fields:**
+    - `mcp_server`: Target SaaS service name
+    - `access_type`: Permission level (`"read"`, `"write"`, `"individual"`)
+    - `api_key`: User's API key from SaaS provider
+    
+    **Optional Fields:**
+    - `auth_method`: Defaults to `"api_key"` if not specified
   </Accordion>
 
-  <Accordion title="Security and Isolation" icon="shield">
-    - No credential sharing between application and users
-    - Each user's access is properly scoped and isolated
-    - Delegated tokens are short-lived for enhanced security
-    - Clean separation between application and user permissions
+  <Accordion title="Invalid Schema Examples" icon="x">
+    **Missing API Key:**
+    ```json
+    {
+      "mcp_server": "pipedrive",
+      "access_type": "write",
+      "auth_method": "api_key"
+      // Missing required api_key field - Returns 422 validation error
+    }
+    ```
+    
+    **OAuth + API Key Conflict:**
+    ```json
+    {
+      "mcp_server": "pipedrive",
+      "access_type": "write",
+      "auth_method": "oauth",
+      "api_key": "should-not-be-provided"
+      // Invalid combination - Returns 422 validation error
+    }
+    ```
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## Connection Management
+## OAuth 2.1 Authentication
 
-### Monitoring Connection Health
+### External OAuth Flow
+
+OAuth authentication uses `SaaSOAuthProvider` configurations for third-party OAuth flows:
 
 <CodeGroup>
-```python Check Connection Status
-def check_connection_health(server_id, token):
-    """Check the health of a SaaS tool connection"""
-    response = requests.get(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+```http OAuth Connection Request
+POST /api/v1/mcp-servers
+Authorization: Bearer <management_token>
+Content-Type: application/json
 
-    server_info = response.json()
+{
+"mcp_server": "pipedrive",
+"access_type": "write",
+"auth_method": "oauth"
+// No api_key field allowed with OAuth
+}
 
-    return {
-        "status": server_info["status"],
-        "integration_type": server_info["integration_type"],
-        "last_successful_call": server_info.get("last_successful_call"),
-        "error_count": server_info.get("error_count", 0),
-        "oauth_expires": server_info.get("oauth_expires")
-    }
+````
 
-# Check all connections
-def audit_all_connections(token):
-    response = requests.get(
-        "https://api.kambrium.com/v1/mcp-servers",
-        headers={"Authorization": f"Bearer {token}"}
-    )
-
-    servers = response.json()["servers"]
-
-    for server in servers:
-        health = check_connection_health(server["id"], token)
-        print(f"{server['name']}: {health['status']}")
-
-        if health.get("oauth_expires"):
-            print(f"  OAuth expires: {health['oauth_expires']}")
-        if health["error_count"] > 0:
-            print(f"  Recent errors: {health['error_count']}")
+```json OAuth Authorization Response
+{
+  "success": true,
+  "data": {
+    "auth_method": "oauth",
+    "authorization_url": "https://oauth.pipedrive.com/oauth/authorize?client_id=5e70f6f8dbb83c2f&redirect_uri=...",
+    "oauth_status": "pending",
+    "message": "User authorization required. Visit the authorization URL to complete OAuth flow."
+  }
+}
 ````
 
 </CodeGroup>
 
-### Connection Maintenance
+### OAuth Provider Configuration
 
-<AccordionGroup>
-  <Accordion title="OAuth Token Refresh" icon="refresh">
-    OAuth tokens are automatically refreshed by the platform. For manual refresh:
+OAuth providers are configured in the `SaaSOAuthProvider` model:
+
+```json
+{
+  "name": "pipedrive",
+  "display_name": "Pipedrive",
+  "authorization_endpoint": "https://oauth.pipedrive.com/oauth/authorize",
+  "token_endpoint": "https://oauth.pipedrive.com/oauth/token",
+  "client_id": "5e70f6f8dbb83c2f",
+  "client_secret_encrypted": "encrypted_secret",
+  "scopes": ["base"],
+  "requires_pkce": false,
+  "supports_refresh": true
+}
+```
+
+### OAuth Flow Steps
+
+<Tabs>
+  <Tab title="Step 1: Authorization">
+    **User Authorization Required**
     
-    ```python
-    response = requests.post(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}/refresh-auth",
-        headers={"Authorization": f"Bearer {management_token}"}
-    )
-    
-    if response.status_code == 200:
-        print("OAuth tokens refreshed successfully")
+    ```http
+    GET https://oauth.pipedrive.com/oauth/authorize
+      ?client_id=5e70f6f8dbb83c2f
+      &redirect_uri=https://your-domain.com/oauth/callback
+      &response_type=code
+      &scope=base
+      &state=encrypted_state_parameter
     ```
-  </Accordion>
-  
-  <Accordion title="Credential Updates" icon="edit">
-    Update API keys or OAuth settings:
-    
-    ```python
-    # Update API key
-    response = requests.patch(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {management_token}"},
-        json={
-            "credentials": {
-                "api_key": "new_api_key_value"
-            }
-        }
-    )
-    
-    # Update OAuth configuration
-    response = requests.patch(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {management_token}"},
-        json={
-            "oauth_config": {
-                "redirect_uri": "https://newapp.com/callback"
-            }
-        }
-    )
-    ```
-  </Accordion>
-  
-  <Accordion title="Connection Cleanup" icon="trash">
-    Remove connections that are no longer needed:
-    
-    ```python
-    response = requests.delete(
-        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
-        headers={"Authorization": f"Bearer {management_token}"}
-    )
-    
-    if response.status_code == 204:
-        print("MCP server connection deleted successfully")
-    ```
-  </Accordion>
-</AccordionGroup>
-
----
-
-## Troubleshooting Common Issues
-
-### API Key Connection Issues
-
-<AccordionGroup>
-  <Accordion title="Invalid API Key" icon="exclamation-triangle">
-    **Symptoms:** MCP server creation fails or shows "authentication_failed"
-    status **Common Causes:** - Expired or revoked API key - Incorrect API key
-    format - Insufficient permissions on the API key **Solutions:** - Verify API
-    key is valid in the SaaS tool - Check API key permissions and scopes -
-    Generate a new API key if necessary - Ensure correct instance URL for tools
-    like Salesforce
-  </Accordion>
-
-  <Accordion title="Configuration Errors" icon="cog">
-    **Symptoms:** Connection created but MCP operations fail **Common Causes:**
-    - Missing required configuration parameters - Incorrect instance URLs or
-    endpoints - API key lacks necessary permissions **Solutions:** - Review SaaS
-    tool documentation for required parameters - Verify instance URLs and
-    endpoints - Check API key scope and permissions in SaaS tool admin
-  </Accordion>
-</AccordionGroup>
-
-### OAuth Connection Issues
-
-<AccordionGroup>
-  <Accordion title="OAuth Authorization Failures" icon="lock">
-    **Symptoms:** OAuth flow fails or returns to error page **Common Causes:** -
-    User denied authorization - OAuth application not properly configured -
-    Redirect URI mismatch - SaaS tool OAuth restrictions **Solutions:** - Ensure
-    user grants all required permissions - Verify OAuth application
-    configuration - Check redirect URI settings - Review SaaS tool OAuth
-    policies and restrictions
-  </Accordion>
-
-  <Accordion title="Token Expiration" icon="clock">
-    **Symptoms:** Connection works initially then fails with auth errors
-    **Common Causes:** - OAuth refresh token expired - SaaS tool revoked access
-    - Account permissions changed **Solutions:** - Re-authorize the connection
-    through OAuth flow - Check SaaS tool admin for revoked applications - Verify
-    account permissions haven't changed - Set up monitoring for token expiration
-  </Accordion>
-</AccordionGroup>
-
----
-
-## Security Best Practices
-
-### Credential Management
-
-<AccordionGroup>
-  <Accordion title="API Key Security" icon="key">
-    - Generate API keys with minimal required permissions - Regularly rotate API
-    keys (recommended: every 90 days) - Monitor API key usage for unusual
-    activity - Revoke unused or compromised keys immediately - Use separate API
-    keys for different applications/environments
-  </Accordion>
+  </Tab>
 
 {" "}
 
-<Accordion title="OAuth Security" icon="shield">
-  - Review and understand requested OAuth scopes - Monitor OAuth application
-  authorizations in SaaS tool admin - Regularly audit granted permissions -
-  Revoke access for unused integrations - Enable SaaS tool security
-  notifications
-</Accordion>
+<Tab title="Step 2: Callback">
+  **OAuth Callback Processing** ```http POST
+  /api/mcp-servers/saas-oauth/pipedrive/callback/ Content-Type:
+  application/x-www-form-urlencoded
+  code=auth_code_from_provider&state=encrypted_state_parameter&scope=base ```
+</Tab>
 
-  <Accordion title="Access Control" icon="lock">
-    - Use service accounts where available - Implement least-privilege access
-    principles - Regular security audits of connections - Monitor connection
-    usage patterns - Enable audit logging in SaaS tools
+  <Tab title="Step 3: Token Exchange">
+    **Backend Token Exchange**
+    
+    ```http
+    POST https://oauth.pipedrive.com/oauth/token
+    Content-Type: application/x-www-form-urlencoded
+    
+    grant_type=authorization_code
+    &code=auth_code_from_provider
+    &client_id=5e70f6f8dbb83c2f
+    &client_secret=provider_client_secret
+    &redirect_uri=callback_uri
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Database Storage Models
+
+### API Key Storage
+
+API key connections store credentials in the `mcp_server_access` table:
+
+```python
+# API Key Authentication
+api_key = "user_provided_api_key"  # Direct storage
+saas_oauth_provider = None  # No OAuth provider
+saas_access_token_encrypted = None  # No OAuth tokens
+saas_refresh_token_encrypted = None
+```
+
+### OAuth Storage
+
+OAuth connections store tokens in encrypted fields:
+
+```python
+# OAuth Authentication
+api_key = None  # No direct API key
+saas_oauth_provider_id = 1  # Links to SaaSOAuthProvider
+saas_access_token_encrypted = "encrypted_oauth_access_token"
+saas_refresh_token_encrypted = "encrypted_oauth_refresh_token"
+saas_token_expires_at = datetime(2024, 2, 15, 10, 0, 0)
+saas_oauth_scopes = ["base"]
+```
+
+### Authentication Method Detection
+
+The system determines authentication method using model properties:
+
+```python
+@property
+def saas_authentication_method(self):
+    """Return the SaaS authentication method used"""
+    if self.saas_oauth_provider:
+        return 'oauth2'
+    elif self.api_key:
+        return 'api_key'
+    else:
+        return None
+
+@property
+def has_saas_oauth(self):
+    """Check if this access has SaaS OAuth configured"""
+    return bool(self.saas_oauth_provider and self.saas_access_token_encrypted)
+```
+
+---
+
+## Error Handling
+
+### Schema Validation Errors
+
+<AccordionGroup>
+  <Accordion title="422 Missing API Key" icon="alert-triangle">
+    **API Key Required with auth_method: "api_key"**
+    
+    Based on test implementation: HTTP 422 error when `auth_method: "api_key"` is specified without providing `api_key` field.
+    
+    ```json
+    {
+      "detail": [
+        {
+          "type": "missing",
+          "loc": ["body", "api_key"],
+          "msg": "Field required when auth_method is api_key",
+          "input": {
+            "mcp_server": "pipedrive",
+            "access_type": "write",
+            "auth_method": "api_key"
+          }
+        }
+      ]
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="422 OAuth + API Key Conflict" icon="x">
+    **api_key field not allowed with auth_method: "oauth"**
+    
+    Based on test implementation: HTTP 422 error when both `auth_method: "oauth"` and `api_key` are provided.
+    
+    ```json
+    {
+      "detail": [
+        {
+          "type": "value_error", 
+          "loc": ["body"],
+          "msg": "Validation error: api_key and oauth method conflict",
+          "input": {
+            "mcp_server": "pipedrive",
+            "access_type": "write", 
+            "auth_method": "oauth",
+            "api_key": "should-not-be-provided"
+          }
+        }
+      ]
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="OAuth Flow Errors" icon="shield-x">
+    **OAuth State Validation Failed**
+    ```json
+    {
+      "success": false,
+      "error": "Invalid state parameter",
+      "message": "OAuth state validation failed. Possible CSRF attack."
+    }
+    ```
   </Accordion>
 </AccordionGroup>
+
+---
+
+## Security Implementation
+
+### API Key Security
+
+- **Secure Storage:** API keys stored in encrypted database fields
+- **Verification:** Background verification of API key validity
+- **Rate Limiting:** API key usage monitored for abuse detection
+- **Audit Logging:** All API key operations logged for security
+
+### OAuth Security Features
+
+- **State Validation:** HMAC-signed state parameters prevent CSRF attacks
+- **PKCE Support:** Code challenge/verifier for enhanced security (where supported)
+- **Token Encryption:** OAuth tokens encrypted at rest using AES-256
+- **Refresh Handling:** Automatic token refresh with secure rotation
+
+### Provider-Specific Security
+
+<Tabs>
+  <Tab title="Pipedrive">
+    **OAuth Configuration:**
+    - Authorization: `https://oauth.pipedrive.com/oauth/authorize`
+    - Token Endpoint: `https://oauth.pipedrive.com/oauth/token`
+    - PKCE: Not required
+    - Refresh: Supported
+    - Scopes: `["base"]`
+  </Tab>
+
+  <Tab title="Gmail">
+    **OAuth Configuration:**
+    - Authorization: `https://accounts.google.com/o/oauth2/v2/auth`
+    - Token Endpoint: `https://oauth2.googleapis.com/token`
+    - PKCE: Required
+    - Refresh: Supported
+    - Scopes: `["https://www.googleapis.com/auth/gmail.readonly"]`
+  </Tab>
+</Tabs>
+
+---
+
+## Integration Examples
+
+### Creating API Key Connection
+
+<CodeGroup>
+```python Python API Key Example
+import httpx
+
+async def create_api_key_connection(management_token: str, api_key: str):
+headers = {
+"Authorization": f"Bearer {management_token}",
+"Content-Type": "application/json"
+}
+
+    data = {
+        "mcp_server": "pipedrive",
+        "access_type": "write",
+        "api_key": api_key
+        # auth_method defaults to "api_key"
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://your-domain.com/api/v1/mcp-servers",
+            headers=headers,
+            json=data
+        )
+        return response.json()
+
+````
+
+```javascript JavaScript OAuth Example
+async function createOAuthConnection(managementToken) {
+  const response = await fetch('https://your-domain.com/api/v1/mcp-servers', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${managementToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      mcp_server: 'pipedrive',
+      access_type: 'write',
+      auth_method: 'oauth'
+      // No api_key field with OAuth
+    })
+  });
+
+  const result = await response.json();
+
+  if (result.success) {
+    // Redirect user to authorization URL
+    window.location.href = result.data.authorization_url;
+  }
+
+  return result;
+}
+````
+
+</CodeGroup>
+
+---
+
+## Best Practices
+
+### API Key Management
+
+- **Source Verification:** Only accept API keys directly from users
+- **Immediate Validation:** Verify API keys against SaaS provider APIs
+- **Secure Storage:** Never log or expose API keys in responses
+- **Regular Rotation:** Encourage users to rotate API keys regularly
+
+### OAuth Implementation
+
+- **State Security:** Always use HMAC-signed state parameters
+- **HTTPS Only:** OAuth flows must use HTTPS for all redirects
+- **Token Lifecycle:** Implement proper token refresh and expiration handling
+- **Error Recovery:** Handle OAuth failures gracefully with clear user messaging
 
 ---
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card
-    title="MCP Server Access"
-    href="/authentication/mcp-server"
-    icon="server"
-  >
-    Learn how to use your connected SaaS tools through MCP protocol
+  <Card title="Management API" href="/authentication/management-api" icon="cog">
+    Learn about Management API authentication for server lifecycle
   </Card>
 
 {" "}
 
-<Card title="Management API" href="/authentication/management-api" icon="cog">
-  Programmatically manage MCP server connections
+<Card title="MCP Server Access" href="/authentication/mcp-server" icon="server">
+  Understand MCP server runtime authentication
 </Card>
 
 {" "}
@@ -557,17 +485,12 @@ def audit_all_connections(token):
   End-to-end setup walkthrough
 </Card>
 
-  <Card
-    title="Web Dashboard"
-    href="https://app.kambrium.com"
-    icon="external-link"
-  >
-    Visual interface for managing SaaS connections
+  <Card title="API Reference" href="/api-reference/introduction" icon="book">
+    Explore the complete API documentation
   </Card>
 </CardGroup>
 
 <Note>
-  SaaS tool connections form the foundation of your MCP Server integrations.
-  Proper credential management and security practices ensure reliable, secure
-  access to your business data.
+  SaaS tool authentication ensures secure, standards-compliant connections to
+  third-party services using either API keys or OAuth 2.1 flows.
 </Note>
