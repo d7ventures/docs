@@ -10,9 +10,9 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP resources. Resources a
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
-2. **Authentication**: Valid OAuth token or PAT with `mcp.resources.read` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 
 ## Request Format
 
@@ -20,11 +20,10 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP resources. Resources a
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "resources-list-abc123",
+  "id": "resources-list-123",
   "method": "resources/list",
   "params": {
-    "cursor": "optional_pagination_cursor",
-    "limit": 50
+    "cursor": "optional_pagination_cursor"
   }
 }
 ```
@@ -36,7 +35,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "get-resources-1",
+    "id": "get-resources",
     "method": "resources/list",
     "params": {}
   }'
@@ -51,7 +50,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (returned in response)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -59,15 +58,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="params" type="object">
-  Optional parameters for the request
+  Optional parameters
 
   <Expandable title="params properties">
     <ParamField path="cursor" type="string">
       Pagination cursor for fetching next page of results
-    </ParamField>
-    
-    <ParamField path="limit" type="integer">
-      Maximum number of resources to return (typically 1-100)
     </ParamField>
   </Expandable>
 </ParamField>
@@ -83,7 +78,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
-  The resources list result
+  Resources list result
   <Expandable title="result properties">
     <ResponseField name="resources" type="array" required>
       Array of available resources
@@ -132,38 +127,26 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Success Response
 {
   "jsonrpc": "2.0",
-  "id": "resources-list-abc123",
+  "id": "resources-list-123",
   "result": {
     "resources": [
       {
         "uri": "crm://contacts/database",
         "name": "Contacts Database",
         "description": "Complete contacts database with all customer information",
-        "mimeType": "application/json",
-        "annotations": {
-          "audience": ["human", "llm"],
-          "priority": 0.8
-        }
+        "mimeType": "application/json"
       },
       {
         "uri": "crm://deals/active",
         "name": "Active Deals",
         "description": "Currently active deals in the sales pipeline",
-        "mimeType": "application/json",
-        "annotations": {
-          "audience": ["llm"],
-          "priority": 0.9
-        }
+        "mimeType": "application/json"
       },
       {
         "uri": "file://reports/monthly_sales.pdf",
         "name": "Monthly Sales Report",
         "description": "Detailed sales performance report for the current month",
-        "mimeType": "application/pdf",
-        "annotations": {
-          "audience": ["human"],
-          "priority": 0.6
-        }
+        "mimeType": "application/pdf"
       }
     ],
     "nextCursor": null
@@ -174,7 +157,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Error Response
 {
   "jsonrpc": "2.0",
-  "id": "resources-list-abc123",
+  "id": "resources-list-123",
   "error": {
     "code": -32000,
     "message": "Session not initialized",
@@ -198,19 +181,121 @@ Different MCP servers use various URI schemes to organize resources:
 | `api://`  | `api://analytics/dashboard`   | API endpoint data            |
 | `db://`   | `db://users/table`            | Database table/query results |
 
+## Access Control
+
+Resources are filtered based on user permissions:
+
+- **OAuth authentication**: Returns user-specific resources based on database permissions
+- **User isolation**: Each user sees only resources they have access to
+- **Consistent results**: Same user always gets same resources (unless permissions change)
+
+## Resource Capabilities
+
+Servers may advertise additional resource capabilities:
+
+```json
+{
+  "capabilities": {
+    "resources": {
+      "subscribe": true,
+      "listChanged": true
+    }
+  }
+}
+```
+
+- **`subscribe`**: Server supports `resources/subscribe` for change notifications
+- **`listChanged`**: Server sends `notifications/resources/list_changed` when resources are added/removed
+
 ## Common Error Codes
 
-| Code     | Meaning        | Solution                                      |
-| -------- | -------------- | --------------------------------------------- |
-| `-32602` | Invalid params | Check pagination parameters                   |
-| `-32000` | Authentication | Verify OAuth token and session initialization |
-| `-32603` | Internal error | Server-side error, check logs                 |
+| Code     | Meaning                 | Solution                       |
+| -------- | ----------------------- | ------------------------------ |
+| `-32000` | Session not initialized | Call `initialize` method first |
+| `-32001` | Authentication failed   | Verify OAuth token validity    |
+| `-32602` | Invalid params          | Check request parameter format |
+| `-32603` | Internal server error   | Server-side processing error   |
+
+## Usage Patterns
+
+### Basic Resource Discovery
+
+```javascript
+// Get available resources
+const response = await mcpClient.request("resources/list", {});
+const resources = response.result.resources;
+
+console.log(`Found ${resources.length} resources:`);
+resources.forEach((resource) => {
+  console.log(`- ${resource.name} (${resource.uri})`);
+});
+```
+
+### Resource Filtering
+
+```javascript
+// Filter resources by type
+function filterResourcesByType(resources, mimeType) {
+  return resources.filter((resource) => resource.mimeType === mimeType);
+}
+
+// Get only JSON resources
+const jsonResources = filterResourcesByType(resources, "application/json");
+
+// Get only PDF documents
+const pdfResources = filterResourcesByType(resources, "application/pdf");
+```
+
+### Pagination Handling
+
+```javascript
+// Handle paginated resource lists
+async function getAllResources() {
+  let allResources = [];
+  let cursor = null;
+
+  do {
+    const response = await mcpClient.request(
+      "resources/list",
+      cursor ? { cursor } : {}
+    );
+
+    allResources.push(...response.result.resources);
+    cursor = response.result.nextCursor;
+  } while (cursor);
+
+  return allResources;
+}
+```
+
+### Resource Validation
+
+```javascript
+// Validate resource structure
+function validateResource(resource) {
+  const required = ["uri", "name"];
+  const missing = required.filter((field) => !(field in resource));
+
+  if (missing.length > 0) {
+    throw new Error(`Resource missing required fields: ${missing.join(", ")}`);
+  }
+
+  // Validate URI format
+  if (!resource.uri || typeof resource.uri !== "string") {
+    throw new Error("Resource URI must be a non-empty string");
+  }
+
+  return {
+    uri: resource.uri,
+    name: resource.name,
+    type: resource.mimeType || "unknown",
+    hasDescription: !!resource.description,
+  };
+}
+```
 
 ## Next Steps
 
-After listing resources, you can:
-
-- **Read resource content** using [`resources/read`](./resources-read)
-- **Subscribe to changes** via `resources/subscribe`
-- **Filter by URI scheme** to find specific resource types
-- **Use resource URIs** in tool calls or prompts
+- **Read resource content** with [resources/read](./resources-read)
+- **Subscribe to changes** using `resources/subscribe` (if supported)
+- **Monitor updates** via `notifications/resources/list_changed`

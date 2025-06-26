@@ -10,10 +10,10 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to read MCP resource content. Reso
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
-2. **Authentication**: Valid OAuth token or PAT with `mcp.resources.read` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
-4. **Resource Discovery**: Use [`resources/list`](./resources-list) to discover available resource URIs
+1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
+4. **Resource Discovery**: Use [resources/list](./resources-list) to discover available resource URIs
 
 ## Request Format
 
@@ -21,7 +21,7 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to read MCP resource content. Reso
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-abc123",
+  "id": "resource-read-123",
   "method": "resources/read",
   "params": {
     "uri": "crm://contacts/database"
@@ -36,7 +36,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "read-contacts-1",
+    "id": "read-contacts",
     "method": "resources/read",
     "params": {
       "uri": "crm://contacts/database"
@@ -53,7 +53,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (returned in response)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -113,7 +113,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Text Resource Response
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-abc123",
+  "id": "resource-read-123",
   "result": {
     "contents": [
       {
@@ -129,7 +129,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json CSV Resource Response
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-abc123",
+  "id": "resource-read-123",
   "result": {
     "contents": [
       {
@@ -145,7 +145,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Binary Resource Response
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-abc123",
+  "id": "resource-read-123",
   "result": {
     "contents": [
       {
@@ -161,7 +161,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Resource Not Found Error
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-abc123",
+  "id": "resource-read-123",
   "error": {
     "code": -32002,
     "message": "Resource not found",
@@ -189,6 +189,14 @@ Resources can contain different types of content:
 | `image/png`        | `blob`        | Binary image data    |
 | `image/jpeg`       | `blob`        | Binary image data    |
 
+## Access Control
+
+Resource access is controlled by user permissions:
+
+- **User-specific filtering**: Users can only read resources they have access to
+- **Database validation**: Server validates permissions against database state
+- **Consistent access**: Same user always gets same access (unless permissions change)
+
 ## Common Error Codes
 
 | Code     | Meaning            | Solution                                       |
@@ -198,20 +206,163 @@ Resources can contain different types of content:
 | `-32602` | Invalid params     | Check URI format and encoding                  |
 | `-32603` | Internal error     | Server-side error, check resource availability |
 
-## URI Format Guidelines
+## Usage Patterns
 
-Different resource URI schemes have specific formats:
+### Basic Resource Reading
 
-- **CRM Resources**: `crm://[type]/[id]` (e.g., `crm://contacts/123`)
-- **File Resources**: `file://[path]` (e.g., `file://reports/data.csv`)
-- **API Resources**: `api://[endpoint]` (e.g., `api://analytics/kpis`)
-- **Database Resources**: `db://[table]/[query]` (e.g., `db://users/active`)
+```javascript
+// Read a resource by URI
+async function readResource(uri) {
+  try {
+    const response = await mcpClient.request("resources/read", {
+      uri: uri,
+    });
+
+    const contents = response.result.contents;
+    if (contents.length > 0) {
+      const content = contents[0];
+
+      if (content.text) {
+        return {
+          type: "text",
+          data: content.text,
+          mimeType: content.mimeType,
+        };
+      } else if (content.blob) {
+        return {
+          type: "binary",
+          data: content.blob,
+          mimeType: content.mimeType,
+        };
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Failed to read resource ${uri}:`, error.message);
+    return null;
+  }
+}
+```
+
+### Content Type Handling
+
+```javascript
+// Handle different content types
+function processResourceContent(content) {
+  const { mimeType, text, blob } = content;
+
+  if (text) {
+    switch (mimeType) {
+      case "application/json":
+        return JSON.parse(text);
+
+      case "text/csv":
+        return parseCsv(text);
+
+      case "text/plain":
+      case "text/xml":
+      default:
+        return text;
+    }
+  } else if (blob) {
+    // Handle binary content
+    const buffer = Buffer.from(blob, "base64");
+
+    switch (mimeType) {
+      case "application/pdf":
+        return { type: "pdf", buffer };
+
+      case "image/png":
+      case "image/jpeg":
+        return { type: "image", buffer, format: mimeType };
+
+      default:
+        return { type: "binary", buffer };
+    }
+  }
+
+  throw new Error("Resource content has neither text nor blob field");
+}
+```
+
+### Error Handling
+
+```javascript
+// Comprehensive error handling for resource reading
+async function readResourceSafely(uri) {
+  try {
+    const response = await mcpClient.request("resources/read", {
+      uri: uri,
+    });
+
+    const contents = response.result.contents;
+
+    if (!contents || contents.length === 0) {
+      return { success: false, error: "Resource has no content" };
+    }
+
+    const content = contents[0];
+
+    // Validate URI matches
+    if (content.uri !== uri) {
+      return {
+        success: false,
+        error: `URI mismatch: requested ${uri}, got ${content.uri}`,
+      };
+    }
+
+    return {
+      success: true,
+      content: content,
+      isText: !!content.text,
+      isBinary: !!content.blob,
+      mimeType: content.mimeType,
+    };
+  } catch (error) {
+    if (error.code === -32002) {
+      return { success: false, error: "Resource not found" };
+    } else if (error.code === -32000) {
+      return { success: false, error: "Authentication failed" };
+    } else {
+      return { success: false, error: error.message };
+    }
+  }
+}
+```
+
+### Batch Resource Reading
+
+```javascript
+// Read multiple resources efficiently
+async function readMultipleResources(uris) {
+  const results = await Promise.allSettled(
+    uris.map((uri) => mcpClient.request("resources/read", { uri }))
+  );
+
+  return results.map((result, index) => {
+    const uri = uris[index];
+
+    if (result.status === "fulfilled") {
+      const contents = result.value.result.contents;
+      return {
+        uri,
+        success: true,
+        content: contents.length > 0 ? contents[0] : null,
+      };
+    } else {
+      return {
+        uri,
+        success: false,
+        error: result.reason.message,
+      };
+    }
+  });
+}
+```
 
 ## Next Steps
 
-After reading a resource, you can:
-
-- **Parse the content** based on the `mimeType`
-- **Use in tool calls** by referencing the resource URI
-- **Subscribe to updates** via `resources/subscribe`
-- **Cache content** for improved performance (respect TTL if provided)
+- **Discover resources** with [resources/list](./resources-list)
+- **Subscribe to changes** using `resources/subscribe` (if supported)
+- **Use in tools** by referencing resource URIs in tool calls

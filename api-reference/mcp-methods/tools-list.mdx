@@ -6,13 +6,13 @@ description: "List available tools from an MCP server using JSON-RPC 2.0 protoco
 
 ## Protocol Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP, not REST. All MCP communication goes through a single tenant endpoint using structured JSON-RPC requests and responses.
+This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP tools. Tools are functions that can be executed by AI systems to interact with external services and data sources.
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
 2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 
 ## Request Format
 
@@ -20,11 +20,10 @@ This endpoint uses **JSON-RPC 2.0** over HTTP, not REST. All MCP communication g
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "tools-list-abc123",
+  "id": "tools-list-123",
   "method": "tools/list",
   "params": {
-    "cursor": "optional_pagination_cursor",
-    "limit": 50
+    "cursor": "optional_pagination_cursor"
   }
 }
 ```
@@ -36,7 +35,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "tools-list-request-1",
+    "id": "tools-list-request",
     "method": "tools/list",
     "params": {}
   }'
@@ -51,7 +50,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (returned in response)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -59,15 +58,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="params" type="object">
-  Optional parameters for the request
+  Optional parameters
 
   <Expandable title="params properties">
     <ParamField path="cursor" type="string">
       Pagination cursor for fetching next page of results
-    </ParamField>
-    
-    <ParamField path="limit" type="integer">
-      Maximum number of tools to return (typically 1-100)
     </ParamField>
   </Expandable>
 </ParamField>
@@ -83,7 +78,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
-  The tools list result
+  Tools list result
   <Expandable title="result properties">
     <ResponseField name="tools" type="array" required>
       Array of available tools
@@ -128,7 +123,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Success Response
 {
   "jsonrpc": "2.0",
-  "id": "tools-list-abc123",
+  "id": "tools-list-123",
   "result": {
     "tools": [
       {
@@ -182,12 +177,12 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Error Response
 {
   "jsonrpc": "2.0",
-  "id": "tools-list-abc123",
+  "id": "tools-list-123",
   "error": {
-    "code": -32602,
-    "message": "Invalid params",
+    "code": -32000,
+    "message": "Session not initialized",
     "data": {
-      "details": "Session not initialized. Call 'initialize' method first."
+      "details": "Call 'initialize' method first to establish MCP session."
     }
   }
 }
@@ -195,18 +190,97 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 </ResponseExample>
 
+## OAuth Filtering
+
+Tools are filtered based on OAuth authentication:
+
+- **With OAuth token**: Returns user-specific tools based on database permissions
+- **Access control**: Each user sees only tools they have permission to execute
+- **Consistent results**: Same user always gets same tools (unless permissions change)
+
+## Tool Capabilities
+
+Servers may advertise `listChanged` capability to notify when tools are added/removed:
+
+```json
+{
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    }
+  }
+}
+```
+
+If supported, server will send `notifications/tools/list_changed` when tool list updates.
+
 ## Common Error Codes
 
-| Code     | Meaning        | Solution                                      |
-| -------- | -------------- | --------------------------------------------- |
-| `-32602` | Invalid params | Check request format and required parameters  |
-| `-32000` | Authentication | Verify OAuth token and session initialization |
-| `-32603` | Internal error | Server-side error, check logs                 |
+| Code     | Meaning                 | Solution                       |
+| -------- | ----------------------- | ------------------------------ |
+| `-32000` | Session not initialized | Call `initialize` method first |
+| `-32001` | Authentication failed   | Verify OAuth token validity    |
+| `-32602` | Invalid params          | Check request parameter format |
+| `-32603` | Internal server error   | Server-side processing error   |
+
+## Usage Patterns
+
+### Basic Tool Discovery
+
+```javascript
+// Get available tools
+const response = await mcpClient.request("tools/list", {});
+const tools = response.result.tools;
+
+console.log(`Found ${tools.length} tools:`);
+tools.forEach((tool) => {
+  console.log(`- ${tool.name}: ${tool.description}`);
+});
+```
+
+### Tool Validation
+
+```javascript
+// Validate tool has required parameters
+function validateTool(tool) {
+  const schema = tool.inputSchema;
+  const required = schema?.required || [];
+
+  console.log(`Tool: ${tool.name}`);
+  console.log(`Required params: ${required.join(", ")}`);
+
+  return {
+    name: tool.name,
+    hasRequiredParams: required.length > 0,
+    requiredParams: required,
+  };
+}
+```
+
+### Pagination Handling
+
+```javascript
+// Handle paginated tool lists
+async function getAllTools() {
+  let allTools = [];
+  let cursor = null;
+
+  do {
+    const response = await mcpClient.request(
+      "tools/list",
+      cursor ? { cursor } : {}
+    );
+
+    allTools.push(...response.result.tools);
+    cursor = response.result.nextCursor;
+  } while (cursor);
+
+  return allTools;
+}
+```
 
 ## Next Steps
 
-After listing tools, you can:
-
-- **Execute a tool** using [`tools/call`](./tools-call)
-- **Get argument completions** using `completion/complete`
-- **Subscribe to changes** via `notifications/tools/list_changed`
+- **Execute tools** with [tools/call](./tools-call)
+- **Get argument completions** using [completion/complete](./utilities)
+- **Monitor changes** via `notifications/tools/list_changed`

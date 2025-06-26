@@ -20,158 +20,136 @@ MCP provides a **unified interface** for AI agents to:
 
 MCP is built on **JSON-RPC 2.0**, providing:
 
-- **Structured communication** with request/response patterns
-- **Error handling** with standardized error codes
-- **Bidirectional messaging** for real-time updates
-- **Protocol versioning** for backward compatibility
+- **Single endpoint** per tenant: `POST /{tenant}/mcp`
+- **Method-based routing** using the `method` field
+- **Request correlation** via unique `id` fields
+- **Error handling** with standard JSON-RPC error codes
 
 ### **Session-Based Communication**
 
-Every MCP interaction requires an active session:
+MCP requires session initialization before use:
+
+1. **Initialize**: Establish capabilities and configuration
+2. **Notify**: Send `notifications/initialized` to complete handshake
+3. **Use**: Execute methods like `tools/list`, `resources/read`
+
+## Core Primitives
+
+MCP organizes functionality into three main primitives:
+
+| Primitive     | Control Model          | Description                   | Examples                    |
+| ------------- | ---------------------- | ----------------------------- | --------------------------- |
+| **Tools**     | Model-controlled       | Functions that AI can execute | API calls, data processing  |
+| **Resources** | Application-controlled | Data/content for AI context   | Files, databases, documents |
+| **Prompts**   | User-controlled        | Templates for AI interactions | Slash commands, workflows   |
+
+### **Tools**
+
+Tools enable AI systems to take actions:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "get_weather",
+    "arguments": { "location": "New York" }
+  }
+}
+```
+
+### **Resources**
+
+Resources provide contextual data:
+
+```json
+{
+  "method": "resources/read",
+  "params": {
+    "uri": "crm://contacts/database"
+  }
+}
+```
+
+### **Prompts**
+
+Prompts offer reusable templates:
+
+```json
+{
+  "method": "prompts/get",
+  "params": {
+    "name": "code_review",
+    "arguments": { "code": "function hello() {...}" }
+  }
+}
+```
+
+## Protocol Flow
+
+### **1. Session Initialization**
 
 ```mermaid
 sequenceDiagram
-    participant AI as AI System
-    participant MCP as MCP Server
-    participant Tool as External Tool
-
-    AI->>MCP: initialize (capabilities)
-    MCP->>AI: session_id + capabilities
-    AI->>MCP: notifications/initialized
-    MCP->>AI: ready
-
-    Note over AI,Tool: Session Active - Tools Available
-
-    AI->>MCP: tools/list
-    MCP->>AI: available tools
-    AI->>MCP: tools/call (get_contacts)
-    MCP->>Tool: API call
-    Tool->>MCP: contact data
-    MCP->>AI: formatted response
+    Client->>Server: initialize
+    Server->>Client: capabilities + session_id
+    Client->>Server: notifications/initialized
+    Note over Client,Server: Session ready for use
 ```
 
-### **Multi-Tenant Architecture**
+### **2. Method Execution**
 
-MCP supports multiple isolated environments:
+```mermaid
+sequenceDiagram
+    Client->>Server: tools/list
+    Server->>Client: available tools
+    Client->>Server: tools/call
+    Server->>Client: execution result
+```
 
-- **Tenant-specific endpoints**: `POST /{tenant}/mcp`
-- **Isolated data access** per tenant
-- **Separate authentication** contexts
-- **Resource namespacing** by tenant
+## Capabilities Negotiation
 
-## Protocol Components
-
-### **Server Features**
-
-- **Tools** - Functions that can be executed by AI systems
-- **Resources** - Data that can be accessed and read
-- **Prompts** - Templates for AI interactions
-
-### **Client Features**
-
-- **Sampling** - Control over AI model behavior
-- **Root Lists** - Directory structure management
-
-### **Utilities**
-
-- **Ping** - Connection health monitoring
-- **Cancellation** - Request cancellation notifications
-- **Progress** - Progress tracking for long-running operations
-
-### **Cross-Cutting Features**
-
-- **Logging** - Configurable server logging levels
-- **Completion** - Argument completion suggestions
-- **Pagination** - Handling large result sets
-
-## Message Types
-
-### **Requests**
-
-Standard JSON-RPC requests with required ID:
+Servers advertise supported features during initialization:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": "request-123",
-  "method": "tools/list",
-  "params": {}
-}
-```
-
-### **Responses**
-
-Standard JSON-RPC responses:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "request-123",
-  "result": {
-    "tools": [...]
+  "capabilities": {
+    "tools": { "listChanged": true },
+    "resources": { "subscribe": true, "listChanged": true },
+    "prompts": { "listChanged": true },
+    "logging": {}
   }
 }
 ```
 
-### **Notifications**
+## Authentication & Security
 
-One-way messages without responses:
+MCP supports two authentication methods:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "abc123",
-    "progress": 50,
-    "total": 100
-  }
-}
-```
+- **OAuth 2.1**: Standard OAuth flow with scopes
+- **Personal Access Tokens (PATs)**: Direct token-based access
 
-## Implementation Requirements
+Required scopes:
 
-### **Required Components**
-
-1. **Base Protocol** - JSON-RPC 2.0 messaging
-2. **Lifecycle Management** - Session initialization and management
-3. **Authentication** - OAuth 2.1 or PAT token support
-4. **At least one feature** - Tools, Resources, or Prompts
-
-### **Optional Components**
-
-- Server features (tools, resources, prompts)
-- Client features (sampling, root lists)
-- Utilities (ping, cancellation, progress)
-- Cross-cutting features (logging, completion, pagination)
-
-## Security Model
-
-- **OAuth 2.1 Client Credentials** flow for applications
-- **Personal Access Tokens (PATs)** for service accounts
-- **Scope-based permissions** (`mcp.read`, `mcp.write`, `mcp.tools.execute`)
-- **Session isolation** between tenants
-- **Request validation** and sanitization
+- `mcp.read` - List tools, resources, prompts
+- `mcp.tools.execute` - Execute tools
+- `mcp.resources.read` - Read resource content
 
 ## Error Handling
 
 MCP uses standard JSON-RPC error codes:
 
-| Code     | Meaning               | Description                    |
-| -------- | --------------------- | ------------------------------ |
-| `-32700` | Parse error           | Invalid JSON                   |
-| `-32600` | Invalid request       | Invalid JSON-RPC structure     |
-| `-32601` | Method not found      | Unknown method                 |
-| `-32602` | Invalid params        | Invalid method parameters      |
-| `-32603` | Internal error        | Server-side processing error   |
-| `-32000` | Authentication failed | Invalid or missing credentials |
-| `-32001` | Resource not found    | Requested resource unavailable |
-| `-32002` | Rate limit exceeded   | Too many requests              |
+| Code     | Meaning        | Usage                          |
+| -------- | -------------- | ------------------------------ |
+| `-32000` | Server error   | Authentication, session issues |
+| `-32001` | Not found      | Unknown tool/resource/prompt   |
+| `-32602` | Invalid params | Malformed request parameters   |
+| `-32603` | Internal error | Server-side processing errors  |
 
 ## Next Steps
 
-Ready to implement MCP? Continue with:
-
-- [Session Management](./session-management) - Learn about MCP session lifecycle
-- [Error Handling](./error-handling) - Understand error codes and handling
-- [Authentication](../authentication/introduction) - Set up secure access
+- **Learn about** [Session Management](./session-management)
+- **Understand** [Error Handling](./error-handling)
+- **Explore** specific methods:
+  - [Tools](../mcp-methods/tools-list)
+  - [Resources](../mcp-methods/resources-list)
+  - [Prompts](../mcp-methods/prompts-list)

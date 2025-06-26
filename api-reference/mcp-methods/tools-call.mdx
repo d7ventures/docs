@@ -6,14 +6,14 @@ description: "Execute a specific tool using JSON-RPC 2.0 protocol. This method c
 
 ## Protocol Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP to execute MCP tools. The tool name and arguments are passed in the JSON-RPC request parameters.
+This endpoint uses **JSON-RPC 2.0** over HTTP to execute MCP tools. Tools can perform various operations like querying databases, calling APIs, or processing data.
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
 2. **Authentication**: Valid OAuth token or PAT with `mcp.tools.execute` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
-4. **Tool Discovery**: Use [`tools/list`](./tools-list) to discover available tools and their parameters
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
+4. **Tool Discovery**: Use [tools/list](./tools-list) to discover available tools and their parameters
 
 ## Request Format
 
@@ -21,7 +21,7 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to execute MCP tools. The tool nam
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "tool-call-abc123",
+  "id": "tool-call-123",
   "method": "tools/call",
   "params": {
     "name": "get_contacts",
@@ -40,7 +40,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "call-get-contacts-1",
+    "id": "call-get-contacts",
     "method": "tools/call",
     "params": {
       "name": "get_contacts",
@@ -60,7 +60,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (returned in response)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -98,7 +98,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
       Array of content items returned by the tool
       <Expandable title="content item">
         <ResponseField name="type" type="string" required>
-          Content type: `"text"`, `"image"`, or `"resource"`
+          Content type: `"text"`, `"image"`, `"audio"`, or `"resource"`
         </ResponseField>
 
         <ResponseField name="text" type="string">
@@ -106,21 +106,34 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
         </ResponseField>
 
         <ResponseField name="data" type="string">
-          Base64-encoded data (when type is "image")
+          Base64-encoded data (when type is "image" or "audio")
         </ResponseField>
 
         <ResponseField name="mimeType" type="string">
           MIME type for data content
         </ResponseField>
 
-        <ResponseField name="uri" type="string">
-          Resource URI (when type is "resource")
+        <ResponseField name="resource" type="object">
+          Embedded resource (when type is "resource")
+          <Expandable title="resource properties">
+            <ResponseField name="uri" type="string" required>
+              Resource URI
+            </ResponseField>
+
+            <ResponseField name="mimeType" type="string">
+              Resource MIME type
+            </ResponseField>
+
+            <ResponseField name="text" type="string">
+              Resource text content
+            </ResponseField>
+          </Expandable>
         </ResponseField>
       </Expandable>
     </ResponseField>
 
     <ResponseField name="isError" type="boolean">
-      Whether the tool execution resulted in an error
+      Whether the tool execution resulted in an error (defaults to false)
     </ResponseField>
 
   </Expandable>
@@ -150,7 +163,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Success Response
 {
   "jsonrpc": "2.0",
-  "id": "tool-call-abc123",
+  "id": "tool-call-123",
   "result": {
     "content": [
       {
@@ -163,10 +176,10 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json Success with Structured Data
+```json Success with Embedded Resource
 {
   "jsonrpc": "2.0",
-  "id": "tool-call-abc123",
+  "id": "tool-call-123",
   "result": {
     "content": [
       {
@@ -175,8 +188,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
       },
       {
         "type": "resource",
-        "uri": "crm://contacts/123",
-        "mimeType": "application/json"
+        "resource": {
+          "uri": "crm://contacts/123",
+          "mimeType": "application/json",
+          "text": "{\"id\": 123, \"name\": \"John Doe\", \"email\": \"john@example.com\"}"
+        }
       }
     ],
     "isError": false
@@ -187,7 +203,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ```json Tool Execution Error
 {
   "jsonrpc": "2.0",
-  "id": "tool-call-abc123",
+  "id": "tool-call-123",
   "result": {
     "content": [
       {
@@ -200,16 +216,29 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json JSON-RPC Error
+```json Protocol Error (Unknown Tool)
 {
   "jsonrpc": "2.0",
-  "id": "tool-call-abc123",
+  "id": "tool-call-123",
   "error": {
-    "code": -32001,
-    "message": "Tool not found",
+    "code": -32602,
+    "message": "Unknown tool: invalid_tool_name",
     "data": {
-      "tool_name": "invalid_tool",
-      "available_tools": ["get_contacts", "create_deal", "update_contact"]
+      "tool_name": "invalid_tool_name"
+    }
+  }
+}
+```
+
+```json Protocol Error (Invalid Arguments)
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "arguments must be an object, got string"
     }
   }
 }
@@ -217,29 +246,155 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 </ResponseExample>
 
+## Error Handling
+
+MCP tools use **two error reporting mechanisms**:
+
+### 1. Protocol Errors (JSON-RPC errors)
+
+Used for issues with the request itself:
+
+- Unknown tool names
+- Invalid argument structure
+- Authentication failures
+- Server errors
+
+### 2. Tool Execution Errors (isError: true)
+
+Used when the tool runs but encounters an error:
+
+- API failures
+- Invalid input data
+- Business logic errors
+- External service unavailable
+
+## Content Types
+
+Tools can return various content types:
+
+| Type       | Description            | Fields                     |
+| ---------- | ---------------------- | -------------------------- |
+| `text`     | Plain text content     | `text`                     |
+| `image`    | Base64-encoded images  | `data`, `mimeType`         |
+| `audio`    | Base64-encoded audio   | `data`, `mimeType`         |
+| `resource` | Embedded resource data | `resource` (with uri, etc) |
+
 ## Common Error Codes
 
-| Code     | Meaning        | Solution                                     |
-| -------- | -------------- | -------------------------------------------- |
-| `-32001` | Tool not found | Use `tools/list` to get available tools      |
-| `-32602` | Invalid params | Check tool arguments against inputSchema     |
-| `-32000` | Authentication | Verify OAuth token and required scopes       |
-| `-32603` | Internal error | Server-side error, check tool implementation |
+| Code     | Meaning               | Solution                                   |
+| -------- | --------------------- | ------------------------------------------ |
+| `-32602` | Invalid params        | Check tool name and arguments structure    |
+| `-32001` | Tool not found        | Verify tool exists with `tools/list`       |
+| `-32000` | Authentication failed | Check OAuth token and required scopes      |
+| `-32603` | Internal server error | Server-side error, check tool availability |
 
-## Tool Argument Validation
+## Usage Patterns
 
-Tools validate arguments against their `inputSchema` (from `tools/list`):
+### Basic Tool Execution
 
-- **Required fields** must be provided
-- **Data types** must match schema definitions
-- **Value constraints** (min/max, enums) are enforced
-- **Invalid arguments** return `-32602` error
+```javascript
+// Execute a simple tool
+async function callTool(toolName, args) {
+  try {
+    const response = await mcpClient.request("tools/call", {
+      name: toolName,
+      arguments: args,
+    });
+
+    if (response.result.isError) {
+      console.error("Tool execution error:", response.result.content[0].text);
+      return null;
+    }
+
+    return response.result.content;
+  } catch (error) {
+    console.error("Protocol error:", error.message);
+    return null;
+  }
+}
+```
+
+### Argument Validation
+
+```javascript
+// Validate arguments against tool schema
+function validateArguments(tool, args) {
+  const schema = tool.inputSchema;
+  const required = schema?.required || [];
+
+  // Check required parameters
+  for (const param of required) {
+    if (!(param in args)) {
+      throw new Error(`Missing required parameter: ${param}`);
+    }
+  }
+
+  // Check parameter types
+  const properties = schema?.properties || {};
+  for (const [key, value] of Object.entries(args)) {
+    const propDef = properties[key];
+    if (propDef && propDef.type) {
+      const expectedType = propDef.type;
+      const actualType = typeof value;
+
+      if (expectedType === "integer" && !Number.isInteger(value)) {
+        throw new Error(`Parameter ${key} must be an integer`);
+      }
+      if (expectedType === "number" && typeof value !== "number") {
+        throw new Error(`Parameter ${key} must be a number`);
+      }
+      if (expectedType === "string" && typeof value !== "string") {
+        throw new Error(`Parameter ${key} must be a string`);
+      }
+    }
+  }
+}
+```
+
+### Error Handling
+
+```javascript
+// Comprehensive error handling
+async function executeToolSafely(toolName, args) {
+  try {
+    const response = await mcpClient.request("tools/call", {
+      name: toolName,
+      arguments: args,
+    });
+
+    const result = response.result;
+
+    if (result.isError) {
+      // Tool execution error
+      const errorText = result.content.find((c) => c.type === "text")?.text;
+      throw new Error(`Tool execution failed: ${errorText}`);
+    }
+
+    // Success - extract content
+    const textContent = result.content
+      .filter((c) => c.type === "text")
+      .map((c) => c.text)
+      .join("\n");
+
+    return {
+      success: true,
+      text: textContent,
+      allContent: result.content,
+    };
+  } catch (error) {
+    if (error.code === -32602) {
+      return { success: false, error: "Invalid tool or arguments" };
+    } else if (error.code === -32001) {
+      return { success: false, error: "Tool not found" };
+    } else {
+      return { success: false, error: error.message };
+    }
+  }
+}
+```
 
 ## Next Steps
 
-After calling a tool, you can:
-
-- **Handle the response** based on `isError` flag
-- **Parse content** based on content type (text/image/resource)
-- **Use returned resources** with [`resources/read`](./resources-read)
-- **Chain tool calls** for complex workflows
+- **Discover tools** with [tools/list](./tools-list)
+- **Get argument completions** using [completion/complete](./utilities)
+- **Handle progress** via `notifications/progress` for long-running tools
