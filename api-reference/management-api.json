@@ -1,0 +1,719 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Kambrium Management API",
+        "description": "API for managing MCP server connections and integrations",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://api.kambrium.com",
+            "description": "Production server"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "paths": {
+        "/api/v1/mcp-servers/available": {
+            "get": {
+                "summary": "Get Available MCP Servers",
+                "description": "Get a simplified list of all available MCP server integrations that can be connected to",
+                "responses": {
+                    "200": {
+                        "description": "Available MCP server integrations",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AvailableServersResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mcp-servers": {
+            "get": {
+                "summary": "List User's MCP Server Connections",
+                "description": "Get all MCP server connections for the authenticated user",
+                "responses": {
+                    "200": {
+                        "description": "User's MCP server connections",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConnectionsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create MCP Server Instance",
+                "description": "Create a new connection to an MCP server integration. Supports both API key and OAuth authentication methods",
+                "requestBody": {
+                    "description": "MCP server connection details",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateConnectionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "MCP server connection created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConnectionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mcp-servers/{server_id}": {
+            "get": {
+                "summary": "Get MCP Server Instance",
+                "description": "Get detailed information about a specific MCP server connection",
+                "parameters": [
+                    {
+                        "name": "server_id",
+                        "in": "path",
+                        "description": "ID of the MCP server connection",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "MCP server connection details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConnectionDetailResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "MCP server connection not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "summary": "Update MCP Server Instance",
+                "description": "Update an existing MCP server connection",
+                "parameters": [
+                    {
+                        "name": "server_id",
+                        "in": "path",
+                        "description": "ID of the MCP server connection to update",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "Updated connection details",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateConnectionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "MCP server connection updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConnectionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "MCP server connection not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Delete MCP Server Instance",
+                "description": "Delete an MCP server connection",
+                "parameters": [
+                    {
+                        "name": "server_id",
+                        "in": "path",
+                        "description": "ID of the MCP server connection to delete",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "MCP server connection deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeleteResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "MCP server connection not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/mcp-servers/{server_id}/tools": {
+            "get": {
+                "summary": "Get MCP Server Tools",
+                "description": "Retrieve all available tools for a specific MCP server connection in MCP format",
+                "parameters": [
+                    {
+                        "name": "server_id",
+                        "in": "path",
+                        "description": "ID of the MCP server connection",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum number of tools to return (1-2000, default: 50)",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 2000,
+                            "default": 50
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "Number of tools to skip for pagination (default: 0)",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "MCP server tools",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ToolsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "MCP server connection not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        },
+        "schemas": {
+            "AvailableServersResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AvailableServer"
+                        }
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Found 2 available MCP server integrations"
+                    }
+                }
+            },
+            "AvailableServer": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "pipedrive"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "CRM integration for managing deals, contacts, and activities"
+                    },
+                    "number_of_tools": {
+                        "type": "integer",
+                        "example": 277
+                    }
+                }
+            },
+            "ConnectionsResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Connection"
+                        }
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Found 1 MCP server connections"
+                    }
+                }
+            },
+            "Connection": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 172
+                    },
+                    "mcp_server_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "mcp_server_name": {
+                        "type": "string",
+                        "example": "Pipedrive MCP Server"
+                    },
+                    "mcp_server_description": {
+                        "type": "string",
+                        "example": "CRM integration for managing deals, contacts, and activities"
+                    },
+                    "api_key_verification_status": {
+                        "type": "string",
+                        "example": "verified"
+                    },
+                    "mcp_server_access_type_name": {
+                        "type": "string",
+                        "example": "Write Access"
+                    },
+                    "mcp_server_access_status_name": {
+                        "type": "string",
+                        "example": "Active"
+                    },
+                    "agent_enabled": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "disabled_tools": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": []
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2024-01-15T10:30:00Z"
+                    }
+                }
+            },
+            "CreateConnectionRequest": {
+                "type": "object",
+                "required": [
+                    "mcp_server",
+                    "access_type"
+                ],
+                "properties": {
+                    "mcp_server": {
+                        "type": "string",
+                        "example": "pipedrive",
+                        "description": "MCP server integration name"
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "read",
+                            "write",
+                            "individual"
+                        ],
+                        "example": "write",
+                        "description": "Access level for the connection"
+                    },
+                    "auth_method": {
+                        "type": "string",
+                        "enum": [
+                            "api_key",
+                            "oauth"
+                        ],
+                        "default": "api_key",
+                        "example": "api_key",
+                        "description": "SaaS authentication method"
+                    },
+                    "api_key": {
+                        "type": "string",
+                        "example": "your-pipedrive-api-key",
+                        "description": "Required when auth_method is api_key"
+                    },
+                    "agent_enabled": {
+                        "type": "boolean",
+                        "default": true,
+                        "example": true,
+                        "description": "Enable agent access to this connection"
+                    },
+                    "disabled_tools": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": null,
+                        "description": "Tool IDs to disable (only when access_type is individual)"
+                    }
+                }
+            },
+            "UpdateConnectionRequest": {
+                "type": "object",
+                "properties": {
+                    "api_key": {
+                        "type": "string",
+                        "example": "updated-api-key"
+                    },
+                    "agent_enabled": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "read",
+                            "write",
+                            "individual"
+                        ],
+                        "example": "read"
+                    },
+                    "disabled_tools": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": [
+                            1,
+                            2,
+                            3
+                        ]
+                    }
+                }
+            },
+            "ConnectionResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/Connection"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "MCP server connection created successfully"
+                    }
+                }
+            },
+            "ConnectionDetailResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/Connection"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "MCP server details retrieved successfully"
+                    }
+                }
+            },
+            "DeleteResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "type": "null",
+                        "example": null
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "MCP server connection deleted successfully"
+                    }
+                }
+            },
+            "ToolsResponse": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "$ref": "#/components/schemas/ToolsData"
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Found 277 tools for MCP server connection (showing 50 tools, page 1)"
+                    }
+                }
+            },
+            "ToolsData": {
+                "type": "object",
+                "properties": {
+                    "tools": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Tool"
+                        }
+                    },
+                    "total_count": {
+                        "type": "integer",
+                        "example": 277
+                    },
+                    "mcp_server_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "example": 50
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "has_more": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                }
+            },
+            "Tool": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "getPersons"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Returns all persons from the CRM system"
+                    },
+                    "inputSchema": {
+                        "type": "object",
+                        "example": {
+                            "type": "object",
+                            "title": "GetPersons Input",
+                            "description": "Input schema for getPersons endpoint",
+                            "properties": {
+                                "limit": {
+                                    "type": "string",
+                                    "title": "Limit",
+                                    "description": "Items shown per page"
+                                }
+                            },
+                            "required": [],
+                            "additionalProperties": false
+                        }
+                    },
+                    "annotations": {
+                        "type": "object",
+                        "example": {}
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "error": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "example": "UNAUTHORIZED"
+                            },
+                            "message": {
+                                "type": "string",
+                                "example": "Invalid or expired access token"
+                            },
+                            "details": {
+                                "type": "object",
+                                "example": {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
