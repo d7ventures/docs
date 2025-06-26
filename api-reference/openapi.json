@@ -358,6 +358,210 @@
         }
       }
     },
+    "/{tenant}/mcp/tools/list": {
+      "post": {
+        "summary": "List Tools",
+        "description": "List all available tools for the MCP server using JSON-RPC 2.0 protocol",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "description": "Tenant identifier (e.g., 'pipedrive', 'salesforce', 'hubspot')",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "pipedrive"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "JSON-RPC 2.0 request for listing tools",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpListToolsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "List of available tools",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpListToolsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{tenant}/mcp/tools/call": {
+      "post": {
+        "summary": "Call Tool",
+        "description": "Execute a specific tool with provided arguments using JSON-RPC 2.0 protocol",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "description": "Tenant identifier (e.g., 'pipedrive', 'salesforce', 'hubspot')",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "pipedrive"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "JSON-RPC 2.0 request for calling a tool",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpCallToolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tool execution result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpCallToolResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{tenant}/mcp/resources/list": {
+      "post": {
+        "summary": "Get Resources",
+        "description": "List all available resources for the MCP server using JSON-RPC 2.0 protocol",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "description": "Tenant identifier (e.g., 'pipedrive', 'salesforce', 'hubspot')",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "pipedrive"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "JSON-RPC 2.0 request for listing resources",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpListResourcesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "List of available resources",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpListResourcesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{tenant}/mcp/prompts/list": {
+      "post": {
+        "summary": "Get Prompts",
+        "description": "List all available prompts for the MCP server using JSON-RPC 2.0 protocol",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "description": "Tenant identifier (e.g., 'pipedrive', 'salesforce', 'hubspot')",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "pipedrive"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "JSON-RPC 2.0 request for listing prompts",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpListPromptsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "List of available prompts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpListPromptsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/plants": {
       "get": {
         "description": "Returns all plants from the system that the user has access to",
@@ -977,6 +1181,497 @@
           "description",
           "inputSchema",
           "annotations"
+        ]
+      },
+      "McpListToolsRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "tools-1"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "tools/list"
+            ],
+            "example": "tools/list"
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "description": "Optional pagination cursor"
+              }
+            }
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "McpListToolsResponse": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "tools-1"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "tools": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/McpTool"
+                }
+              },
+              "nextCursor": {
+                "type": "string",
+                "description": "Pagination cursor for next page"
+              }
+            },
+            "required": [
+              "tools"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ]
+      },
+      "McpTool": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "get_deals"
+          },
+          "description": {
+            "type": "string",
+            "example": "Retrieve deals from Pipedrive CRM with filtering options"
+          },
+          "inputSchema": {
+            "type": "object",
+            "example": {
+              "type": "object",
+              "properties": {
+                "limit": {
+                  "type": "integer",
+                  "description": "Maximum number of deals to return (1-500)",
+                  "minimum": 1,
+                  "maximum": 500,
+                  "default": 100
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Deal status filter",
+                  "enum": [
+                    "open",
+                    "won",
+                    "lost",
+                    "deleted",
+                    "all_not_deleted"
+                  ],
+                  "default": "all_not_deleted"
+                }
+              },
+              "required": [
+                "limit"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "inputSchema"
+        ]
+      },
+      "McpCallToolRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "call-1"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "tools/call"
+            ],
+            "example": "tools/call"
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "get_deals"
+              },
+              "arguments": {
+                "type": "object",
+                "example": {
+                  "limit": 5,
+                  "status": "open",
+                  "sort": "value DESC"
+                }
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ]
+      },
+      "McpCallToolResponse": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "call-1"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "text"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "isError": {
+                "type": "boolean",
+                "example": false
+              }
+            },
+            "required": [
+              "content",
+              "isError"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ]
+      },
+      "McpListResourcesRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "res-1"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "resources/list"
+            ],
+            "example": "resources/list"
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "description": "Optional pagination cursor"
+              }
+            }
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "McpListResourcesResponse": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "res-1"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "resources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/McpResource"
+                }
+              },
+              "nextCursor": {
+                "type": "string",
+                "description": "Pagination cursor for next page"
+              }
+            },
+            "required": [
+              "resources"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ]
+      },
+      "McpResource": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "example": "pipedrive://deals/schema"
+          },
+          "name": {
+            "type": "string",
+            "example": "Deals Schema"
+          },
+          "description": {
+            "type": "string",
+            "example": "Complete schema definition for Pipedrive deals including all fields and their types"
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "application/json"
+          }
+        },
+        "required": [
+          "uri",
+          "name",
+          "description",
+          "mimeType"
+        ]
+      },
+      "McpListPromptsRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "prompts-1"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "prompts/list"
+            ],
+            "example": "prompts/list"
+          },
+          "params": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string",
+                "description": "Optional pagination cursor"
+              }
+            }
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "McpListPromptsResponse": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "prompts-1"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "prompts": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/McpPrompt"
+                }
+              },
+              "nextCursor": {
+                "type": "string",
+                "description": "Pagination cursor for next page"
+              }
+            },
+            "required": [
+              "prompts"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ]
+      },
+      "McpPrompt": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "deal_analysis"
+          },
+          "description": {
+            "type": "string",
+            "example": "Analyze a specific deal and provide actionable insights"
+          },
+          "arguments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "example": [
+              {
+                "name": "deal_id",
+                "description": "The ID of the deal to analyze",
+                "required": true
+              },
+              {
+                "name": "include_history",
+                "description": "Whether to include deal history and activity timeline",
+                "required": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "arguments"
+        ]
+      },
+      "McpError": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "example": "2.0"
+          },
+          "id": {
+            "type": "string",
+            "example": "call-1"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "example": -32000
+              },
+              "message": {
+                "type": "string",
+                "example": "Invalid or expired OAuth token"
+              },
+              "data": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "error"
         ]
       },
       "Error": {

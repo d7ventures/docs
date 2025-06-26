@@ -97,6 +97,15 @@
             ]
           },
           {
+            "group": "MCP Server Interaction",
+            "pages": [
+              "api-reference/mcp-interaction/list-tools",
+              "api-reference/mcp-interaction/call-tool",
+              "api-reference/mcp-interaction/get-resources",
+              "api-reference/mcp-interaction/get-prompts"
+            ]
+          },
+          {
             "group": "Endpoint Examples",
             "pages": [
               "api-reference/endpoint/get",
