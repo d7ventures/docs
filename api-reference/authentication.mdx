@@ -92,15 +92,17 @@ There are three key entities that interact with the platform:
     enterprise customers
   </Tab>
 
-  <Tab title="Agent Builder User">
-    **Definition:** An end-user of an agent created by an Agent Builder
-    **Platform Interaction:** Limited to OAuth consent pop-ups from 3rd-party
-    SaaS providers **Typical Workflow:** 1. Use the Agent Builder's application
-    2. When prompted, authorize access to their SaaS tools (Salesforce, Slack,
-    etc.) 3. Complete OAuth consent flow 4. Return to Agent Builder's
-    application **Example Use Case:** A sales manager using their company's AI
-    assistant who needs to grant access to their Salesforce account
-  </Tab>
+{" "}
+
+<Tab title="Agent Builder User">
+  **Definition:** An end-user of an agent created by an Agent Builder **Platform
+  Interaction:** Limited to OAuth consent pop-ups from 3rd-party SaaS providers
+  **Typical Workflow:** 1. Use the Agent Builder's application 2. When prompted,
+  authorize access to their SaaS tools (Salesforce, Slack, etc.) 3. Complete
+  OAuth consent flow 4. Return to Agent Builder's application **Example Use
+  Case:** A sales manager using their company's AI assistant who needs to grant
+  access to their Salesforce account
+</Tab>
 
   <Tab title="Direct User">
     **Definition:** A client of Kambrium who builds agents for their own
@@ -391,15 +393,19 @@ Content-Type: application/json
     available SaaS integrations you can create MCP servers for.
   </Accordion>
 
-  <Accordion title="Create MCP Server" icon="plus">
-    ```bash POST https://api.kambrium.com/v1/mcp-servers ``` Creates a new MCP
-    server connection to a SaaS tool.
-  </Accordion>
+{" "}
 
-  <Accordion title="List Your MCP Servers" icon="server">
-    ```bash GET https://api.kambrium.com/v1/mcp-servers ``` Returns all MCP
-    servers you have created.
-  </Accordion>
+<Accordion title="Create MCP Server" icon="plus">
+  ```bash POST https://api.kambrium.com/v1/mcp-servers ``` Creates a new MCP
+  server connection to a SaaS tool.
+</Accordion>
+
+{" "}
+
+<Accordion title="List Your MCP Servers" icon="server">
+  ```bash GET https://api.kambrium.com/v1/mcp-servers ``` Returns all MCP
+  servers you have created.
+</Accordion>
 
   <Accordion title="Delete MCP Server" icon="trash">
     ```bash DELETE https://api.kambrium.com/v1/mcp-servers/{server_id}
@@ -455,11 +461,11 @@ Content-Type: application/json
   <Card title="MCP Integration Guide" href="/guides/mcp-setup" icon="plug">
     Step-by-step guide to connecting your first SaaS tool
   </Card>
-
+  
   <Card title="API Reference" href="/api-reference/introduction" icon="book">
     Complete Management API documentation
   </Card>
-
+  
   <Card title="Dashboard" href="https://app.kambrium.com" icon="external-link">
     Access the Kambrium web interface
   </Card>
