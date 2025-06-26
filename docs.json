@@ -37,6 +37,12 @@
             ]
           },
           {
+            "group": "Integration Guides",
+            "pages": [
+              "guides/mcp-setup"
+            ]
+          },
+          {
             "group": "Essentials",
             "pages": [
               "essentials/markdown",
@@ -55,7 +61,8 @@
           {
             "group": "API Documentation",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/introduction",
+              "api-reference/authentication"
             ]
           },
           {

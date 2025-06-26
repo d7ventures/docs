@@ -1,0 +1,536 @@
+---
+title: "MCP Integration Guide"
+description: "Step-by-step guide to connecting your first SaaS tool using the Model Context Protocol"
+---
+
+## Overview
+
+This guide walks you through connecting your first SaaS application to Kambrium using the Model Context Protocol (MCP). You'll learn how to create an MCP server connection, authenticate with a third-party service, and test the integration.
+
+<Info>
+  **Prerequisites:** You'll need a Kambrium account and API authentication set
+  up. If you haven't done this yet, see our [Authentication
+  Guide](/api-reference/authentication).
+</Info>
+
+---
+
+## Step 1: Choose Your Integration
+
+Kambrium supports connections to popular SaaS tools. Let's start by checking what integrations are available:
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.kambrium.com/v1/integrations
+```
+
+```python Python
+import requests
+
+headers = {"Authorization": "Bearer YOUR_TOKEN"}
+response = requests.get("https://api.kambrium.com/v1/integrations", headers=headers)
+integrations = response.json()
+
+for integration in integrations["data"]:
+    print(f"- {integration['name']}: {integration['description']}")
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.kambrium.com/v1/integrations", {
+  headers: { Authorization: "Bearer YOUR_TOKEN" },
+});
+
+const integrations = await response.json();
+integrations.data.forEach((integration) => {
+  console.log(`- ${integration.name}: ${integration.description}`);
+});
+```
+
+</CodeGroup>
+
+### Popular Integrations
+
+<CardGroup cols={2}>
+  <Card title="Salesforce" icon="salesforce">
+    CRM data access, lead management, opportunity tracking
+  </Card>
+  <Card title="Slack" icon="slack">
+    Channel messaging, user management, file sharing
+  </Card>
+  <Card title="Google Workspace" icon="google">
+    Gmail, Calendar, Drive, Docs integration
+  </Card>
+  <Card title="HubSpot" icon="hubspot">
+    Marketing automation, contact management, analytics
+  </Card>
+</CardGroup>
+
+---
+
+## Step 2: Create MCP Server Connection
+
+Once you've chosen an integration, create a new MCP server connection:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.kambrium.com/v1/mcp-servers \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "integration_id": "salesforce",
+    "name": "My Salesforce Connection",
+    "description": "Production Salesforce integration for customer data"
+  }'
+```
+
+```python Python
+import requests
+
+url = "https://api.kambrium.com/v1/mcp-servers"
+headers = {
+    "Authorization": "Bearer YOUR_TOKEN",
+    "Content-Type": "application/json"
+}
+data = {
+    "integration_id": "salesforce",
+    "name": "My Salesforce Connection",
+    "description": "Production Salesforce integration for customer data"
+}
+
+response = requests.post(url, headers=headers, json=data)
+server = response.json()
+print(f"Created server: {server['id']}")
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.kambrium.com/v1/mcp-servers", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_TOKEN",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    integration_id: "salesforce",
+    name: "My Salesforce Connection",
+    description: "Production Salesforce integration for customer data",
+  }),
+});
+
+const server = await response.json();
+console.log(`Created server: ${server.id}`);
+```
+
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "id": "mcp_server_123abc",
+  "integration_id": "salesforce",
+  "name": "My Salesforce Connection",
+  "description": "Production Salesforce integration for customer data",
+  "status": "pending_auth",
+  "oauth_url": "https://auth.kambrium.com/oauth/authorize?server_id=mcp_server_123abc",
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+---
+
+## Step 3: SaaS Authentication
+
+Most SaaS integrations require OAuth authentication. There are two approaches:
+
+### Option A: Direct User Authentication
+
+For **direct users** (using the web interface):
+
+1. Visit the `oauth_url` from the server creation response
+2. You'll be redirected to the SaaS provider's login page
+3. Grant permissions to Kambrium
+4. Return to your dashboard to confirm the connection
+
+### Option B: Programmatic Authentication
+
+For **application builders** who need to handle authentication on behalf of their users:
+
+<CodeGroup>
+```python Python
+# Initiate OAuth flow for end user
+def initiate_oauth(server_id, user_id):
+    url = f"https://api.kambrium.com/v1/mcp-servers/{server_id}/oauth/initiate"
+    headers = {"Authorization": "Bearer YOUR_TOKEN"}
+    data = {
+        "user_id": user_id,
+        "redirect_uri": "https://yourapp.com/callback"
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    oauth_data = response.json()
+    
+    # Send user to oauth_data["authorization_url"]
+    return oauth_data["authorization_url"]
+
+# Handle OAuth callback
+
+def handle_oauth_callback(server_id, authorization_code):
+url = f"https://api.kambrium.com/v1/mcp-servers/{server_id}/oauth/complete"
+headers = {"Authorization": "Bearer YOUR_TOKEN"}
+data = {"authorization_code": authorization_code}
+
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+````
+
+```javascript JavaScript
+// Initiate OAuth flow for end user
+async function initiateOAuth(serverId, userId) {
+  const response = await fetch(`https://api.kambrium.com/v1/mcp-servers/${serverId}/oauth/initiate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      redirect_uri: 'https://yourapp.com/callback'
+    })
+  });
+
+  const oauthData = await response.json();
+  // Send user to oauthData.authorization_url
+  return oauthData.authorization_url;
+}
+
+// Handle OAuth callback
+async function handleOAuthCallback(serverId, authorizationCode) {
+  const response = await fetch(`https://api.kambrium.com/v1/mcp-servers/${serverId}/oauth/complete`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      authorization_code: authorizationCode
+    })
+  });
+
+  return response.json();
+}
+````
+
+</CodeGroup>
+
+---
+
+## Step 4: Verify Connection Status
+
+Check that your MCP server is properly authenticated and ready to use:
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  https://api.kambrium.com/v1/mcp-servers/mcp_server_123abc
+```
+
+```python Python
+server_id = "mcp_server_123abc"
+response = requests.get(
+    f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+    headers={"Authorization": "Bearer YOUR_TOKEN"}
+)
+
+server = response.json()
+print(f"Status: {server['status']}")
+print(f"Last connected: {server['last_connected_at']}")
+```
+
+</CodeGroup>
+
+### Connection Statuses
+
+| Status         | Description                     | Next Steps               |
+| -------------- | ------------------------------- | ------------------------ |
+| `pending_auth` | Waiting for SaaS authentication | Complete OAuth flow      |
+| `connected`    | Ready to use                    | Start making requests    |
+| `error`        | Authentication failed           | Check credentials, retry |
+| `disconnected` | Connection lost                 | Re-authenticate          |
+
+---
+
+## Step 5: Test Your Integration
+
+Once connected, test your MCP server with a simple request:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.kambrium.com/v1/mcp-servers/mcp_server_123abc/execute \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "list_contacts",
+    "parameters": {
+      "limit": 10
+    }
+  }'
+```
+
+```python Python
+# Test the MCP server connection
+def test_mcp_server(server_id):
+    url = f"https://api.kambrium.com/v1/mcp-servers/{server_id}/execute"
+    headers = {
+        "Authorization": "Bearer YOUR_TOKEN",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "method": "list_contacts",
+        "parameters": {"limit": 10}
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    result = response.json()
+
+    if response.status_code == 200:
+        print(f"✅ Success! Retrieved {len(result['data'])} contacts")
+        return result
+    else:
+        print(f"❌ Error: {result['error']}")
+        return None
+
+# Test the connection
+test_mcp_server("mcp_server_123abc")
+```
+
+```javascript JavaScript
+async function testMCPServer(serverId) {
+  const response = await fetch(
+    `https://api.kambrium.com/v1/mcp-servers/${serverId}/execute`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer YOUR_TOKEN",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        method: "list_contacts",
+        parameters: { limit: 10 },
+      }),
+    }
+  );
+
+  const result = await response.json();
+
+  if (response.ok) {
+    console.log(`✅ Success! Retrieved ${result.data.length} contacts`);
+    return result;
+  } else {
+    console.log(`❌ Error: ${result.error}`);
+    return null;
+  }
+}
+
+// Test the connection
+testMCPServer("mcp_server_123abc");
+```
+
+</CodeGroup>
+
+---
+
+## Step 6: Using Your MCP Server
+
+Now that your integration is working, you can use it in AI applications:
+
+### With AI Agents
+
+```python
+# Example: Using MCP server in an AI agent workflow
+class CustomerDataAgent:
+    def __init__(self, mcp_server_id):
+        self.mcp_server_id = mcp_server_id
+
+    def get_customer_info(self, customer_email):
+        # Use MCP server to fetch customer data
+        result = self.execute_mcp_method("find_contact", {
+            "email": customer_email
+        })
+
+        if result and result["data"]:
+            contact = result["data"][0]
+            return {
+                "name": contact["name"],
+                "company": contact["company"],
+                "last_activity": contact["last_activity_date"]
+            }
+        return None
+
+    def execute_mcp_method(self, method, parameters):
+        # Implementation using Kambrium API
+        pass
+```
+
+### Available Methods
+
+Each integration provides different methods. Common patterns include:
+
+<AccordionGroup>
+  <Accordion title="CRM Integrations (Salesforce, HubSpot)" icon="users">
+    - `list_contacts` - Get contact list - `get_contact` - Get specific contact
+    details - `create_contact` - Add new contact - `list_opportunities` - Get
+    sales opportunities - `update_deal` - Modify deal information
+  </Accordion>
+
+  <Accordion title="Communication (Slack, Teams)" icon="message">
+    - `list_channels` - Get available channels - `send_message` - Post message
+    to channel - `get_users` - List team members - `upload_file` - Share files
+  </Accordion>
+
+  <Accordion title="Productivity (Google, Office)" icon="briefcase">
+    - `list_files` - Get documents/spreadsheets - `create_document` - Create new
+    document - `get_calendar_events` - Fetch calendar data - `send_email` - Send
+    email via integration
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Advanced Configuration
+
+### Custom Parameters
+
+Configure your MCP server with custom parameters for your specific use case:
+
+<CodeGroup>
+```python Python
+# Update MCP server configuration
+def update_server_config(server_id, config):
+    url = f"https://api.kambrium.com/v1/mcp-servers/{server_id}"
+    headers = {
+        "Authorization": "Bearer YOUR_TOKEN",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "configuration": config
+    }
+    
+    response = requests.patch(url, headers=headers, json=data)
+    return response.json()
+
+# Example: Configure Salesforce integration
+
+config = {
+"sandbox_mode": False,
+"api_version": "v58.0",
+"default_fields": ["Id", "Name", "Email", "Company"],
+"rate_limit": {
+"requests_per_minute": 100
+}
+}
+
+update_server_config("mcp_server_123abc", config)
+
+````
+</CodeGroup>
+
+### Webhooks & Real-time Updates
+
+Set up webhooks to receive real-time notifications when data changes in your SaaS tools:
+
+```python
+# Configure webhook for real-time updates
+webhook_config = {
+    "url": "https://yourapp.com/webhooks/kambrium",
+    "events": ["contact.created", "contact.updated", "deal.closed"],
+    "secret": "your_webhook_secret"
+}
+
+response = requests.post(
+    f"https://api.kambrium.com/v1/mcp-servers/{server_id}/webhooks",
+    headers={"Authorization": "Bearer YOUR_TOKEN"},
+    json=webhook_config
+)
+````
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Authentication Failed" icon="exclamation-triangle">
+    **Symptoms:** Server status shows `error` or `disconnected` **Solutions:** -
+    Verify OAuth credentials in SaaS tool - Check if API permissions were
+    granted correctly - Re-run the OAuth flow with proper scopes - Ensure SaaS
+    account has necessary permissions
+  </Accordion>
+
+  <Accordion title="Method Not Found" icon="search">
+    **Symptoms:** API returns "method not supported" error **Solutions:** -
+    Check integration documentation for available methods - Verify integration
+    supports the operation you're trying - Update to latest integration version
+    - Contact support for custom method requests
+  </Accordion>
+
+  <Accordion title="Rate Limiting" icon="clock">
+    **Symptoms:** 429 errors or slow responses **Solutions:** - Implement
+    exponential backoff in your requests - Check SaaS provider's rate limits -
+    Consider upgrading your SaaS plan - Use batch operations where available
+  </Accordion>
+</AccordionGroup>
+
+### Debug Mode
+
+Enable debug mode to get detailed logs:
+
+```python
+# Enable debug logging for MCP server
+debug_config = {
+    "debug_mode": True,
+    "log_level": "DEBUG",
+    "log_requests": True
+}
+
+requests.patch(
+    f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+    headers={"Authorization": "Bearer YOUR_TOKEN"},
+    json={"configuration": debug_config}
+)
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build AI Agents" href="/guides/ai-agents" icon="robot">
+    Learn how to use your MCP connections in AI agent workflows
+  </Card>
+
+  <Card title="API Reference" href="/api-reference/introduction" icon="book">
+    Explore the complete Management API documentation
+  </Card>
+
+  <Card title="Integration Catalog" href="/integrations" icon="grid">
+    Browse all available SaaS integrations and their capabilities
+  </Card>
+
+  <Card
+    title="Webhooks Guide"
+    href="/api-reference/endpoint/webhook"
+    icon="webhook"
+  >
+    Set up real-time notifications for your integrations
+  </Card>
+</CardGroup>
+
+<Note>
+  **Need Help?** Join our [Discord community](https://discord.gg/kambrium) for
+  support, or check out our [examples
+  repository](https://github.com/kambrium/examples) for complete integration
+  examples.
+</Note>{" "}
