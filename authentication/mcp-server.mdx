@@ -1,0 +1,679 @@
+---
+title: "MCP Server Authentication"
+description: "How to connect to and authenticate with MCP Servers in your applications"
+---
+
+## Overview
+
+**MCP Servers** are the core of the Kambrium platform - they provide standardized, protocol-compliant access to SaaS tools through the Model Context Protocol (MCP). Once you've created an MCP server via the Management API, you can connect to it directly from your applications.
+
+<Info>
+**MCP Base URL:** `https://mcp.kambrium.com`
+
+Each MCP server has a unique endpoint: `https://mcp.kambrium.com/servers/{server_id}`
+
+</Info>
+
+---
+
+## How MCP Servers Work
+
+MCP Servers act as protocol translators between your AI applications and SaaS tools:
+
+```mermaid
+graph LR
+    A[Your AI App] --> B[MCP Client]
+    B --> C[MCP Server]
+    C --> D[SaaS Tool API]
+
+    B1[MCP Protocol] --> B
+    C1[Kambrium MCP Server] --> C
+    D1[Salesforce/Slack/etc] --> D
+
+    style A fill:#8470FF,color:white
+    style C fill:#10B981,color:white
+    style D fill:#F59E0B,color:white
+```
+
+### Key Benefits
+
+<CardGroup cols={2}>
+  <Card title="Standardized Interface" icon="puzzle">
+    All SaaS tools use the same MCP protocol, so you write one integration that
+    works across platforms
+  </Card>
+
+  <Card title="AI-Optimized" icon="brain">
+    Data formats and operations are optimized for AI agent consumption and
+    reasoning
+  </Card>
+
+  <Card title="Built-in Security" icon="shield">
+    OAuth flows and permissions are handled transparently
+  </Card>
+
+  <Card title="Real-time Capability" icon="bolt">
+    Support for real-time data access and webhook notifications
+  </Card>
+</CardGroup>
+
+---
+
+## MCP Server Connection Flow
+
+### 1. Create MCP Server (Management API)
+
+First, create an MCP server using the Management API:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.kambrium.com/v1/mcp-servers \
+  -H "Authorization: Bearer YOUR_MANAGEMENT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "integration_type": "salesforce",
+    "name": "My Salesforce Connection",
+    "auth_config": {
+      "instance_url": "https://mycompany.salesforce.com"
+    }
+  }'
+```
+
+```python Python
+import requests
+
+headers = {
+    "Authorization": f"Bearer {management_token}",
+    "Content-Type": "application/json"
+}
+
+data = {
+    "integration_type": "salesforce",
+    "name": "My Salesforce Connection",
+    "auth_config": {
+        "instance_url": "https://mycompany.salesforce.com"
+    }
+}
+
+response = requests.post(
+    "https://api.kambrium.com/v1/mcp-servers",
+    headers=headers,
+    json=data
+)
+
+server_info = response.json()
+server_id = server_info["id"]
+mcp_endpoint = server_info["mcp_endpoint"]
+```
+
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "id": "mcp_server_123abc",
+  "integration_type": "salesforce",
+  "name": "My Salesforce Connection",
+  "status": "pending_auth",
+  "mcp_endpoint": "https://mcp.kambrium.com/servers/mcp_server_123abc",
+  "auth_url": "https://api.kambrium.com/v1/mcp-servers/mcp_server_123abc/auth"
+}
+```
+
+### 2. Complete OAuth Authorization
+
+Navigate to the `auth_url` to complete OAuth authorization with the SaaS tool:
+
+<CodeGroup>
+```python Python
+import webbrowser
+
+# Open OAuth authorization URL
+
+auth_url = server_info["auth_url"]
+webbrowser.open(auth_url)
+
+# Check authorization status
+
+def check_auth_status(server_id, token):
+response = requests.get(
+f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+headers={"Authorization": f"Bearer {token}"}
+)
+return response.json()["status"]
+
+# Wait for authorization
+
+while check_auth_status(server_id, management_token) != "active":
+time.sleep(5)
+
+print("MCP Server is now active!")
+
+````
+
+```javascript JavaScript
+// Open OAuth authorization URL
+const authUrl = serverInfo.auth_url;
+console.log(`Please visit: ${authUrl}`);
+
+// Check authorization status
+async function checkAuthStatus(serverId, token) {
+  const response = await fetch(
+    `https://api.kambrium.com/v1/mcp-servers/${serverId}`,
+    { headers: { 'Authorization': `Bearer ${token}` } }
+  );
+  const data = await response.json();
+  return data.status;
+}
+
+// Wait for authorization
+while (await checkAuthStatus(serverId, managementToken) !== 'active') {
+  await new Promise(resolve => setTimeout(resolve, 5000));
+}
+
+console.log('MCP Server is now active!');
+````
+
+</CodeGroup>
+
+### 3. Connect via MCP Protocol
+
+Once active, connect to your MCP server using any MCP-compatible client:
+
+<CodeGroup>
+```python Python SDK
+from kambrium_mcp import KambriumClient
+
+# Connect to your MCP server
+
+client = KambriumClient(
+server_endpoint="https://mcp.kambrium.com/servers/mcp_server_123abc",
+auth_token=management_token
+)
+
+# List available tools
+
+tools = await client.list_tools()
+print(f"Available tools: {[tool.name for tool in tools]}")
+
+# Call a tool
+
+result = await client.call_tool(
+"salesforce_search_contacts",
+arguments={"query": "email:john@company.com"}
+)
+print(result)
+
+````
+
+```javascript JavaScript SDK
+import { KambriumClient } from '@kambrium/mcp-client';
+
+// Connect to your MCP server
+const client = new KambriumClient({
+  serverEndpoint: 'https://mcp.kambrium.com/servers/mcp_server_123abc',
+  authToken: managementToken
+});
+
+// List available tools
+const tools = await client.listTools();
+console.log('Available tools:', tools.map(tool => tool.name));
+
+// Call a tool
+const result = await client.callTool('salesforce_search_contacts', {
+  query: 'email:john@company.com'
+});
+console.log(result);
+````
+
+```python Raw MCP Protocol
+import json
+import websockets
+
+async def connect_mcp_server():
+    uri = "wss://mcp.kambrium.com/servers/mcp_server_123abc"
+    headers = {"Authorization": f"Bearer {management_token}"}
+
+    async with websockets.connect(uri, extra_headers=headers) as websocket:
+        # Initialize MCP session
+        init_msg = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {}
+                },
+                "clientInfo": {
+                    "name": "my-app",
+                    "version": "1.0.0"
+                }
+            }
+        }
+
+        await websocket.send(json.dumps(init_msg))
+        response = await websocket.recv()
+        print(f"Initialize response: {response}")
+
+        # List tools
+        tools_msg = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list"
+        }
+
+        await websocket.send(json.dumps(tools_msg))
+        tools_response = await websocket.recv()
+        print(f"Available tools: {tools_response}")
+```
+
+</CodeGroup>
+
+---
+
+## MCP Authentication Methods
+
+### Token-Based Authentication
+
+MCP servers use your Management API token for authentication. The same token that manages the server lifecycle also grants access to the MCP protocol endpoint.
+
+<AccordionGroup>
+  <Accordion title="WebSocket Authentication" icon="plug">
+    For WebSocket connections, include the token in the connection headers:
+    
+    ```python
+    headers = {"Authorization": f"Bearer {your_management_token}"}
+    websockets.connect(mcp_endpoint, extra_headers=headers)
+    ```
+  </Accordion>
+  
+  <Accordion title="HTTP Authentication" icon="globe">
+    For HTTP-based MCP implementations, include the token in request headers:
+    
+    ```python
+    headers = {"Authorization": f"Bearer {your_management_token}"}
+    requests.post(mcp_endpoint, headers=headers, json=mcp_request)
+    ```
+  </Accordion>
+  
+  <Accordion title="SDK Authentication" icon="code">
+    SDKs handle authentication automatically when you provide the token:
+    
+    ```python
+    client = KambriumClient(
+        server_endpoint=mcp_endpoint,
+        auth_token=your_management_token
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Available MCP Operations
+
+### Core MCP Protocol Methods
+
+All Kambrium MCP servers support the standard MCP protocol methods:
+
+<AccordionGroup>
+  <Accordion title="initialize" icon="play">
+    Establish a connection and negotiate capabilities
+    
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {"tools": {}},
+        "clientInfo": {"name": "my-app", "version": "1.0.0"}
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="tools/list" icon="list">
+    Get all available tools for this SaaS integration
+    
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "tools/list"
+    }
+    ```
+    
+    Returns tools like `salesforce_search_contacts`, `slack_send_message`, etc.
+  </Accordion>
+  
+  <Accordion title="tools/call" icon="cog">
+    Execute a specific tool with arguments
+    
+    ```json
+    {
+      "jsonrpc": "2.0", 
+      "method": "tools/call",
+      "params": {
+        "name": "salesforce_search_contacts",
+        "arguments": {"query": "email:john@company.com"}
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="resources/list" icon="database">
+    List available data resources (files, databases, etc.)
+    
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "resources/list"
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="resources/read" icon="file">
+    Read specific resource data
+    
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "resources/read", 
+      "params": {"uri": "salesforce://contacts/12345"}
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Integration Examples
+
+### Salesforce MCP Server
+
+<CodeGroup>
+```python Complete Example
+from kambrium_mcp import KambriumClient
+import asyncio
+
+async def salesforce_example(): # Connect to Salesforce MCP server
+client = KambriumClient(
+server_endpoint="https://mcp.kambrium.com/servers/your_sf_server_id",
+auth_token="your_management_token"
+)
+
+    # Search for contacts
+    contacts = await client.call_tool("salesforce_search_contacts", {
+        "query": "Department:Sales AND Status:Active"
+    })
+
+    # Create a new opportunity
+    opportunity = await client.call_tool("salesforce_create_opportunity", {
+        "name": "Q1 Enterprise Deal",
+        "account_id": "001XX000003DHP0",
+        "stage": "Prospecting",
+        "close_date": "2024-03-31",
+        "amount": 150000
+    })
+
+    # Get account information
+    account = await client.call_tool("salesforce_get_account", {
+        "account_id": "001XX000003DHP0"
+    })
+
+    print(f"Found {len(contacts)} contacts")
+    print(f"Created opportunity: {opportunity['id']}")
+    print(f"Account: {account['name']}")
+
+asyncio.run(salesforce_example())
+
+````
+
+```javascript Slack Example
+import { KambriumClient } from '@kambrium/mcp-client';
+
+async function slackExample() {
+  const client = new KambriumClient({
+    serverEndpoint: 'https://mcp.kambrium.com/servers/your_slack_server_id',
+    authToken: 'your_management_token'
+  });
+
+  // Send a message to a channel
+  await client.callTool('slack_send_message', {
+    channel: '#general',
+    text: 'Hello from my AI agent!',
+    attachments: [{
+      color: 'good',
+      title: 'Integration Success',
+      text: 'MCP server is working perfectly'
+    }]
+  });
+
+  // List channels
+  const channels = await client.callTool('slack_list_channels');
+  console.log('Available channels:', channels);
+
+  // Get channel history
+  const history = await client.callTool('slack_get_channel_history', {
+    channel: '#general',
+    limit: 10
+  });
+  console.log('Recent messages:', history);
+}
+
+slackExample();
+````
+
+</CodeGroup>
+
+---
+
+## Error Handling
+
+### Common MCP Errors
+
+<AccordionGroup>
+  <Accordion title="Connection Errors" icon="exclamation-triangle">
+    **Problem:** Cannot connect to MCP server **Common Causes:** - Invalid or
+    expired management token - MCP server not in "active" status - Network
+    connectivity issues **Solutions:** - Verify token validity - Check server
+    status via Management API - Ensure proper network configuration
+  </Accordion>
+
+  <Accordion title="Authentication Errors" icon="lock">
+    **Problem:** MCP server rejects authentication **Common Causes:** - SaaS
+    tool OAuth token expired - Insufficient permissions/scopes - OAuth
+    connection broken **Solutions:** - Re-authorize via auth_url - Check OAuth
+    scope requirements - Verify SaaS tool account status
+  </Accordion>
+
+  <Accordion title="Tool Execution Errors" icon="cog">
+    **Problem:** Tool calls fail or return errors **Common Causes:** - Invalid
+    tool arguments - SaaS tool API rate limits - Missing required fields
+    **Solutions:** - Validate tool arguments against schema - Implement retry
+    logic with backoff - Check SaaS tool API documentation
+  </Accordion>
+</AccordionGroup>
+
+### Error Response Format
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -1,
+    "message": "Tool execution failed",
+    "data": {
+      "tool": "salesforce_create_opportunity",
+      "error_type": "ValidationError",
+      "details": "Missing required field: close_date"
+    }
+  }
+}
+```
+
+---
+
+## Best Practices
+
+### Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Connection Pooling" icon="network">
+    Reuse MCP connections when possible to avoid overhead:
+    
+    ```python
+    # Good: Reuse connection
+    async with KambriumClient(endpoint, token) as client:
+        for task in tasks:
+            result = await client.call_tool(task.tool, task.args)
+    
+    # Avoid: Creating new connections per request
+    for task in tasks:
+        client = KambriumClient(endpoint, token)
+        result = await client.call_tool(task.tool, task.args)
+        await client.close()
+    ```
+  </Accordion>
+  
+  <Accordion title="Batch Operations" icon="layers">
+    Use batch tools when available for better performance:
+    
+    ```python
+    # Good: Batch operation
+    results = await client.call_tool("salesforce_bulk_create_contacts", {
+        "contacts": contact_list
+    })
+    
+    # Avoid: Individual operations
+    for contact in contact_list:
+        await client.call_tool("salesforce_create_contact", contact)
+    ```
+  </Accordion>
+  
+  <Accordion title="Error Recovery" icon="refresh">
+    Implement robust error handling and retry logic:
+    
+    ```python
+    import asyncio
+    from tenacity import retry, stop_after_attempt, wait_exponential
+    
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10)
+    )
+    async def resilient_tool_call(client, tool_name, args):
+        try:
+            return await client.call_tool(tool_name, args)
+        except Exception as e:
+            print(f"Tool call failed: {e}")
+            raise
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Monitoring & Debugging
+
+### Connection Health
+
+Monitor your MCP server connections:
+
+<CodeGroup>
+```python Health Check
+async def check_mcp_health(client):
+    try:
+        # Test basic connectivity
+        tools = await client.list_tools()
+        
+        # Test tool execution
+        test_result = await client.call_tool("health_check")
+        
+        return {
+            "status": "healthy",
+            "tools_available": len(tools),
+            "last_check": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "last_check": datetime.now().isoformat()
+        }
+```
+
+```python Performance Monitoring
+import time
+
+class MCPPerformanceMonitor:
+    def __init__(self):
+        self.call_times = []
+        self.error_count = 0
+
+    async def timed_tool_call(self, client, tool_name, args):
+        start_time = time.time()
+        try:
+            result = await client.call_tool(tool_name, args)
+            duration = time.time() - start_time
+            self.call_times.append(duration)
+            return result
+        except Exception as e:
+            self.error_count += 1
+            raise
+
+    def get_stats(self):
+        if not self.call_times:
+            return {"avg_time": 0, "error_rate": 1.0}
+
+        avg_time = sum(self.call_times) / len(self.call_times)
+        total_calls = len(self.call_times) + self.error_count
+        error_rate = self.error_count / total_calls
+
+        return {
+            "avg_response_time": avg_time,
+            "error_rate": error_rate,
+            "total_calls": total_calls
+        }
+```
+
+</CodeGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="SaaS Integrations"
+    href="/authentication/integrations"
+    icon="plug"
+  >
+    Learn about specific SaaS tool integrations and OAuth flows
+  </Card>
+
+  <Card title="Complete Tutorial" href="/guides/mcp-setup" icon="rocket">
+    Follow our comprehensive setup guide
+  </Card>
+
+  <Card
+    title="SDK Documentation"
+    href="/api-reference/introduction"
+    icon="code"
+  >
+    Explore our client SDKs and libraries
+  </Card>
+
+  <Card title="Tool Reference" href="/api-reference/tools" icon="wrench">
+    Browse available tools for each integration
+  </Card>
+</CardGroup>
+
+<Note>
+  Questions about MCP protocol implementation? Check the [official MCP
+  specification](https://spec.modelcontextprotocol.io) or join our [Discord
+  community](https://discord.gg/kambrium).
+</Note>{" "}

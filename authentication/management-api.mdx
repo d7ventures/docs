@@ -1,0 +1,445 @@
+---
+title: "Management API Authentication"
+description: "How to authenticate with the Kambrium Management API using Personal Access Tokens or OAuth 2.1"
+---
+
+## Overview
+
+The **Management API** is your primary interface for creating, configuring, and managing MCP Server connections. All Management API operations require authentication using either Personal Access Tokens (PATs) or OAuth 2.1.
+
+<Info>
+**Base URL:** `https://api.kambrium.com`
+
+All requests must include: `Authorization: Bearer <your_token>`
+
+</Info>
+
+---
+
+## Authentication Methods
+
+Choose the authentication method that best fits your use case:
+
+<CardGroup cols={2}>
+  <Card title="Personal Access Tokens" icon="key">
+    **Recommended for:** - Development and testing - Scripting and automation -
+    CI/CD pipelines - Internal tools - Quick prototyping **Benefits:** - Simple
+    setup and usage - No token refresh logic needed - Long-lived (configurable
+    expiration) - OAuth 2.1 compliant
+  </Card>
+
+  <Card title="OAuth 2.1 Client Credentials" icon="shield-check">
+    **Recommended for:** - Production applications - Server-to-server
+    communication - Applications requiring high security - Multi-tenant
+    applications **Benefits:** - Short-lived tokens (enhanced security) -
+    Automatic token refresh capability - Industry standard - Granular scope
+    control
+  </Card>
+</CardGroup>
+
+---
+
+## Personal Access Tokens (PATs)
+
+### Creating a PAT
+
+1. Log into your [Kambrium Dashboard](https://app.kambrium.com)
+2. Navigate to **Settings > API Keys**
+3. Click **Generate Personal Access Token**
+4. Provide a descriptive name for the token
+5. Select expiration period (or leave blank for no expiration)
+6. Copy and store the token securely
+
+<Warning>
+  Personal Access Tokens are displayed only once. Store them securely in
+  environment variables or secrets management systems.
+</Warning>
+
+### Using Your PAT
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer YOUR_PAT_TOKEN" \
+  https://api.kambrium.com/v1/mcp-servers
+```
+
+```python Python
+import os
+import requests
+
+# Store PAT in environment variable
+token = os.getenv('KAMBRIUM_PAT')
+headers = {"Authorization": f"Bearer {token}"}
+
+response = requests.get("https://api.kambrium.com/v1/mcp-servers", headers=headers)
+print(response.json())
+```
+
+```javascript JavaScript
+// Store PAT in environment variable
+const token = process.env.KAMBRIUM_PAT;
+const headers = { Authorization: `Bearer ${token}` };
+
+const response = await fetch("https://api.kambrium.com/v1/mcp-servers", {
+  headers,
+});
+const data = await response.json();
+console.log(data);
+```
+
+</CodeGroup>
+
+### PAT Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Token Storage" icon="database">
+    - Store PATs in environment variables, never in code - Use secrets
+    management systems in production - Rotate tokens regularly (recommended:
+    every 90 days) - Use separate tokens for different applications
+  </Accordion>
+
+  <Accordion title="Access Control" icon="lock">
+    - Generate separate PATs for different applications - Use descriptive names
+    when creating tokens - Delete unused tokens immediately - Monitor token
+    usage in dashboard
+  </Accordion>
+
+  <Accordion title="Network Security" icon="shield">
+    - Always use HTTPS for API requests - Implement proper error handling - Log
+    authentication failures for monitoring - Use IP allowlisting where possible
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## OAuth 2.1 Client Credentials
+
+### Step 1: Create OAuth Application
+
+1. Log into your [Kambrium Dashboard](https://app.kambrium.com)
+2. Navigate to **Settings > OAuth Applications**
+3. Click **Create OAuth Application**
+4. Configure your application:
+   - **Name:** Descriptive name for internal tracking
+   - **Application Type:** Server-to-Server
+   - **Scopes:** Select required permissions (see [Scopes](#scopes))
+5. Save your `client_id` and `client_secret`
+
+### Step 2: Request Access Token
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://auth.kambrium.com/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "scope=mcp:read mcp:write"
+```
+
+```python Python
+import requests
+
+def get_access_token(client_id, client_secret, scopes):
+    url = "https://auth.kambrium.com/oauth/token"
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": " ".join(scopes)
+    }
+
+    response = requests.post(url, data=data)
+    response.raise_for_status()
+
+    return response.json()
+
+# Usage
+token_response = get_access_token(
+    "your_client_id",
+    "your_client_secret",
+    ["mcp:read", "mcp:write"]
+)
+access_token = token_response["access_token"]
+```
+
+```javascript JavaScript
+async function getAccessToken(clientId, clientSecret, scopes) {
+  const response = await fetch("https://auth.kambrium.com/oauth/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: scopes.join(" "),
+    }),
+  });
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Usage
+const token = await getAccessToken("your_client_id", "your_client_secret", [
+  "mcp:read",
+  "mcp:write",
+]);
+```
+
+</CodeGroup>
+
+**Response:**
+
+```json
+{
+  "access_token": "ka_abcdef1234567890...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "mcp:read mcp:write"
+}
+```
+
+### Step 3: Use Access Token
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  https://api.kambrium.com/v1/mcp-servers
+```
+
+```python Python
+headers = {"Authorization": f"Bearer {access_token}"}
+response = requests.get("https://api.kambrium.com/v1/mcp-servers", headers=headers)
+```
+
+```javascript JavaScript
+const headers = { Authorization: `Bearer ${token}` };
+const response = await fetch("https://api.kambrium.com/v1/mcp-servers", {
+  headers,
+});
+```
+
+</CodeGroup>
+
+### Step 4: Handle Token Refresh
+
+OAuth tokens expire after 1 hour. Implement automatic refresh logic:
+
+<CodeGroup>
+```python Python
+from datetime import datetime, timedelta
+import time
+
+class KambriumAuth:
+def **init**(self, client_id, client_secret, scopes):
+self.client_id = client_id
+self.client_secret = client_secret
+self.scopes = scopes
+self.token = None
+self.expires_at = None
+
+    def get_valid_token(self):
+        if not self.token or datetime.now() >= self.expires_at:
+            self._refresh_token()
+        return self.token
+
+    def _refresh_token(self):
+        response = get_access_token(self.client_id, self.client_secret, self.scopes)
+        self.token = response["access_token"]
+        expires_in = response["expires_in"]
+        # Add 60s buffer before expiration
+        self.expires_at = datetime.now() + timedelta(seconds=expires_in - 60)
+
+# Usage
+
+auth = KambriumAuth("client_id", "client_secret", ["mcp:read", "mcp:write"])
+token = auth.get_valid_token()
+
+````
+
+```javascript JavaScript
+class KambriumAuth {
+  constructor(clientId, clientSecret, scopes) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.scopes = scopes;
+    this.token = null;
+    this.expiresAt = null;
+  }
+
+  async getValidToken() {
+    if (!this.token || Date.now() >= this.expiresAt) {
+      await this.refreshToken();
+    }
+    return this.token;
+  }
+
+  async refreshToken() {
+    const response = await getAccessToken(this.clientId, this.clientSecret, this.scopes);
+    this.token = response.access_token;
+    // Add 60s buffer before expiration
+    this.expiresAt = Date.now() + (response.expires_in - 60) * 1000;
+  }
+}
+
+// Usage
+const auth = new KambriumAuth('client_id', 'client_secret', ['mcp:read', 'mcp:write']);
+const token = await auth.getValidToken();
+````
+
+</CodeGroup>
+
+---
+
+## Scopes
+
+Scopes control what actions your application can perform. Request only the scopes you need.
+
+| Scope        | Description                    | Use Cases                             |
+| ------------ | ------------------------------ | ------------------------------------- |
+| `mcp:read`   | Read MCP server configurations | Listing connections, viewing settings |
+| `mcp:write`  | Create and modify MCP servers  | Adding integrations, updating configs |
+| `mcp:delete` | Delete MCP server connections  | Removing integrations                 |
+| `mcp:admin`  | Full administrative access     | Complete management access            |
+
+### Scope Examples
+
+<CodeGroup>
+```bash Read Only Access
+# For applications that only need to view configurations
+scope=mcp:read
+```
+
+```bash Full Management Access
+# For applications that manage integrations
+scope=mcp:read mcp:write mcp:delete
+```
+
+```bash Administrative Access
+# For full platform management
+scope=mcp:admin
+```
+
+</CodeGroup>
+
+---
+
+## API Operations
+
+### Common Management API Operations
+
+<AccordionGroup>
+  <Accordion title="List Available Integrations" icon="list">
+    ```bash GET https://api.kambrium.com/v1/integrations ``` Returns all
+    available SaaS integrations you can create MCP servers for.
+  </Accordion>
+
+  <Accordion title="Create MCP Server" icon="plus">
+    ```bash POST https://api.kambrium.com/v1/mcp-servers ``` Creates a new MCP
+    server connection to a SaaS tool.
+  </Accordion>
+
+  <Accordion title="List Your MCP Servers" icon="server">
+    ```bash GET https://api.kambrium.com/v1/mcp-servers ``` Returns all MCP
+    servers you have created.
+  </Accordion>
+
+  <Accordion title="Delete MCP Server" icon="trash">
+    ```bash DELETE https://api.kambrium.com/v1/mcp-servers/{server_id}
+    ``` Permanently deletes an MCP server connection.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Error Handling
+
+### Common Authentication Errors
+
+| Status Code | Error                 | Description                      | Solution                               |
+| ----------- | --------------------- | -------------------------------- | -------------------------------------- |
+| `401`       | `invalid_token`       | Token is malformed or expired    | Check token format, refresh if expired |
+| `403`       | `insufficient_scope`  | Token lacks required permissions | Generate token with proper scopes      |
+| `429`       | `rate_limit_exceeded` | Too many requests                | Implement exponential backoff          |
+
+### Example Error Response
+
+```json
+{
+  "error": "invalid_token",
+  "error_description": "The access token has expired",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Rate Limits
+
+<Info>
+  **Current Limits:** - **Management API**: 100 requests/minute per token -
+  **OAuth Token Exchange**: 10 requests/minute per client - **Burst allowance**:
+  2x rate limit for 30 seconds
+</Info>
+
+---
+
+## Testing Your Authentication
+
+### Quick Test
+
+Verify your authentication setup with a simple API call:
+
+<CodeGroup>
+```bash cURL with PAT
+curl -H "Authorization: Bearer YOUR_PAT" \
+  https://api.kambrium.com/v1/integrations
+```
+
+```bash cURL with OAuth
+# First get token
+curl -X POST https://auth.kambrium.com/oauth/token \
+  -d "grant_type=client_credentials&client_id=YOUR_ID&client_secret=YOUR_SECRET"
+
+# Then use token
+curl -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  https://api.kambrium.com/v1/integrations
+```
+
+</CodeGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="MCP Server Setup"
+    href="/authentication/mcp-server"
+    icon="server"
+  >
+    Learn how to use and interact with MCP Servers
+  </Card>
+
+  <Card
+    title="SaaS Integrations"
+    href="/authentication/integrations"
+    icon="plug"
+  >
+    Connect your first SaaS tool with OAuth flows
+  </Card>
+
+  <Card title="Complete Guide" href="/guides/mcp-setup" icon="rocket">
+    Follow our step-by-step integration tutorial
+  </Card>
+
+  <Card title="API Reference" href="/api-reference/introduction" icon="book">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>
+
+<Note>
+  Need help? Join our [Discord community](https://discord.gg/kambrium) or
+  contact [support@kambrium.com](mailto:support@kambrium.com).
+</Note>{" "}

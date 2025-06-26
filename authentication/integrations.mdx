@@ -1,0 +1,599 @@
+---
+title: "SaaS Integrations"
+description: "How to connect SaaS tools and handle OAuth flows through Kambrium MCP servers"
+---
+
+## Overview
+
+**SaaS Integrations** represent the third layer of the Kambrium platform - the actual connections to your business tools like Salesforce, Slack, Notion, and more. Each integration handles the OAuth flow and API specifics for that particular SaaS tool.
+
+<Info>
+  **Integration Flow:** 1. Create MCP server via Management API 2. Complete
+  OAuth authorization with SaaS tool 3. Use MCP server to access SaaS tool data
+</Info>
+
+---
+
+## Available Integrations
+
+Kambrium supports a growing list of SaaS integrations, each optimized for AI agent use cases:
+
+<CardGroup cols={3}>
+  <Card title="Salesforce" icon="chart-line">
+    **CRM & Sales** - Contacts, Accounts, Opportunities - Custom Objects &
+    Fields - Reports & Dashboards - Automated workflows
+  </Card>
+
+  <Card title="Slack" icon="slack">
+    **Team Communication** - Send/receive messages - Channel management - File
+    sharing - User presence
+  </Card>
+
+  <Card title="Notion" icon="notion">
+    **Knowledge Management** - Pages & databases - Content creation - Team
+    collaboration - Document search
+  </Card>
+
+  <Card title="GitHub" icon="github">
+    **Code Management** - Repository access - Issue tracking - Pull requests -
+    Code analysis
+  </Card>
+
+  <Card title="Google Workspace" icon="google">
+    **Productivity Suite** - Gmail & Calendar - Drive & Docs - Sheets & Slides -
+    Admin management
+  </Card>
+
+  <Card title="HubSpot" icon="chart-mixed">
+    **Marketing & CRM** - Lead management - Email campaigns - Analytics -
+    Pipeline tracking
+  </Card>
+</CardGroup>
+
+---
+
+## OAuth Authorization Process
+
+### Step 1: Initiate OAuth Flow
+
+When you create an MCP server, you'll receive an authorization URL:
+
+<CodeGroup>
+```bash cURL
+curl -X POST https://api.kambrium.com/v1/mcp-servers \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "integration_type": "salesforce",
+    "name": "Production Salesforce",
+    "auth_config": {
+      "instance_url": "https://mycompany.salesforce.com"
+    }
+  }'
+```
+
+```python Python
+response = requests.post(
+    "https://api.kambrium.com/v1/mcp-servers",
+    headers={
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "integration_type": "salesforce",
+        "name": "Production Salesforce",
+        "auth_config": {
+            "instance_url": "https://mycompany.salesforce.com"
+        }
+    }
+)
+
+server_data = response.json()
+auth_url = server_data["auth_url"]
+print(f"Visit this URL to authorize: {auth_url}")
+```
+
+</CodeGroup>
+
+**Response includes authorization URL:**
+
+```json
+{
+  "id": "mcp_server_123abc",
+  "integration_type": "salesforce",
+  "name": "Production Salesforce",
+  "status": "pending_auth",
+  "auth_url": "https://api.kambrium.com/v1/mcp-servers/mcp_server_123abc/auth",
+  "mcp_endpoint": "https://mcp.kambrium.com/servers/mcp_server_123abc"
+}
+```
+
+### Step 2: Complete Authorization
+
+Navigate to the `auth_url` to complete OAuth with the SaaS tool:
+
+<Tabs>
+  <Tab title="Web Interface">
+    1. Open the `auth_url` in your browser
+    2. You'll be redirected to the SaaS tool's OAuth page
+    3. Log in and grant required permissions
+    4. You'll be redirected back with success confirmation
+    5. MCP server status changes to "active"
+  </Tab>
+  
+  <Tab title="Programmatic">
+    ```python
+    import webbrowser
+    import time
+    
+    # Open authorization URL
+    webbrowser.open(auth_url)
+    
+    # Poll for completion
+    while True:
+        status_response = requests.get(
+            f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        status = status_response.json()["status"]
+        if status == "active":
+            print("Authorization complete!")
+            break
+        elif status == "failed":
+            print("Authorization failed")
+            break
+            
+        time.sleep(5)
+    ```
+  </Tab>
+  
+  <Tab title="Headless">
+    For headless environments, use device flow where supported:
+    
+    ```python
+    # Request device code
+    device_response = requests.post(
+        f"{auth_url}/device",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    device_data = device_response.json()
+    print(f"Visit: {device_data['verification_uri']}")
+    print(f"Enter code: {device_data['user_code']}")
+    
+    # Poll for completion
+    while True:
+        poll_response = requests.post(
+            f"{auth_url}/device/poll",
+            json={"device_code": device_data["device_code"]},
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        
+        if poll_response.status_code == 200:
+            print("Authorization complete!")
+            break
+            
+        time.sleep(device_data["interval"])
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Integration-Specific Configuration
+
+### Salesforce Integration
+
+<AccordionGroup>
+  <Accordion title="Configuration Options" icon="cog">
+    ```json
+    {
+      "integration_type": "salesforce",
+      "name": "Production Salesforce",
+      "auth_config": {
+        "instance_url": "https://mycompany.salesforce.com",
+        "api_version": "58.0",
+        "sandbox": false
+      }
+    }
+    ```
+    
+    - **instance_url**: Your Salesforce instance URL
+    - **api_version**: Salesforce API version (optional, defaults to latest)
+    - **sandbox**: Set to `true` for sandbox environments
+  </Accordion>
+  
+  <Accordion title="Required Permissions" icon="lock">
+    Your Salesforce admin must grant these permissions:
+    
+    - **API Enabled**: Basic API access
+    - **View All Data**: Read access to all objects
+    - **Modify All Data**: Write access (if needed)
+    - **Manage Users**: For user management tools
+    
+    Custom permissions may be required for specific tools.
+  </Accordion>
+  
+  <Accordion title="Available Tools" icon="wrench">
+    - `salesforce_search_contacts` - Search contacts
+    - `salesforce_create_opportunity` - Create opportunities
+    - `salesforce_get_account` - Get account details
+    - `salesforce_update_lead` - Update lead information
+    - `salesforce_run_report` - Execute reports
+    - `salesforce_bulk_import` - Bulk data operations
+  </Accordion>
+</AccordionGroup>
+
+### Slack Integration
+
+<AccordionGroup>
+  <Accordion title="Configuration Options" icon="cog">
+    ```json
+    {
+      "integration_type": "slack",
+      "name": "Company Slack",
+      "auth_config": {
+        "workspace_url": "https://mycompany.slack.com",
+        "bot_scopes": ["chat:write", "channels:read", "files:read"]
+      }
+    }
+    ```
+    
+    - **workspace_url**: Your Slack workspace URL
+    - **bot_scopes**: Required OAuth scopes (optional, defaults included)
+  </Accordion>
+  
+  <Accordion title="Required Scopes" icon="shield">
+    Standard scopes included by default:
+    
+    - **channels:read**: List public channels
+    - **chat:write**: Send messages
+    - **files:read**: Access shared files
+    - **users:read**: Get user information
+    - **reactions:read**: Read message reactions
+    
+    Additional scopes available on request.
+  </Accordion>
+  
+  <Accordion title="Available Tools" icon="wrench">
+    - `slack_send_message` - Send messages to channels/users
+    - `slack_list_channels` - Get channel list
+    - `slack_get_channel_history` - Read message history
+    - `slack_upload_file` - Share files
+    - `slack_add_reaction` - React to messages
+    - `slack_search_messages` - Search message content
+  </Accordion>
+</AccordionGroup>
+
+### Notion Integration
+
+<AccordionGroup>
+  <Accordion title="Configuration Options" icon="cog">
+    ```json
+    {
+      "integration_type": "notion", 
+      "name": "Team Notion",
+      "auth_config": {
+        "workspace_name": "MyCompany"
+      }
+    }
+    ```
+    
+    - **workspace_name**: Notion workspace name (optional)
+  </Accordion>
+  
+  <Accordion title="Required Permissions" icon="lock">
+    During OAuth, grant access to:
+    
+    - **Read content**: Access pages and databases
+    - **Update content**: Modify existing content
+    - **Insert content**: Create new pages/entries
+    - **Comment**: Add comments and discussions
+  </Accordion>
+  
+  <Accordion title="Available Tools" icon="wrench">
+    - `notion_search_pages` - Search across pages
+    - `notion_create_page` - Create new pages
+    - `notion_update_page` - Update page content
+    - `notion_query_database` - Query database entries
+    - `notion_create_database_entry` - Add database rows
+    - `notion_get_page_content` - Read full page content
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## OAuth Scopes & Permissions
+
+### Understanding Scopes
+
+Each SaaS tool has different scope requirements. Kambrium requests minimal necessary scopes by default:
+
+<Tabs>
+  <Tab title="Read-Only Integrations">
+    **For data access only:**
+    - Salesforce: `api`, `refresh_token`
+    - Slack: `channels:read`, `users:read`, `files:read`
+    - Notion: `read`
+    - GitHub: `repo:read`, `user:read`
+    
+    Perfect for analytics, reporting, and data export.
+  </Tab>
+  
+  <Tab title="Full Access Integrations">
+    **For complete functionality:**
+    - Salesforce: `api`, `refresh_token`, `full`
+    - Slack: `chat:write`, `channels:manage`, `files:write`
+    - Notion: `read`, `write`
+    - GitHub: `repo`, `admin:org`
+    
+    Required for automation and workflow tools.
+  </Tab>
+  
+  <Tab title="Custom Scopes">
+    **For specific use cases:**
+    ```json
+    {
+      "auth_config": {
+        "custom_scopes": ["specific:scope", "another:scope"]
+      }
+    }
+    ```
+    
+    Contact support for custom scope requirements.
+  </Tab>
+</Tabs>
+
+---
+
+## Managing Integrations
+
+### Monitoring Connection Health
+
+<CodeGroup>
+```python Check Integration Status
+def check_integration_health(server_id, token):
+    response = requests.get(
+        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    server_info = response.json()
+    
+    return {
+        "status": server_info["status"],
+        "last_used": server_info.get("last_used"),
+        "oauth_expires": server_info.get("oauth_expires"),
+        "error_count": server_info.get("error_count", 0)
+    }
+
+# Check all integrations
+
+def check_all_integrations(token):
+response = requests.get(
+"https://api.kambrium.com/v1/mcp-servers",
+headers={"Authorization": f"Bearer {token}"}
+)
+
+    servers = response.json()["servers"]
+
+    for server in servers:
+        health = check_integration_health(server["id"], token)
+        print(f"{server['name']}: {health['status']}")
+
+````
+
+```python Refresh OAuth Tokens
+def refresh_integration_auth(server_id, token):
+    """Refresh OAuth token for an integration"""
+    response = requests.post(
+        f"https://api.kambrium.com/v1/mcp-servers/{server_id}/refresh-auth",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return {"error": response.json()}
+
+# Automatic refresh for expiring tokens
+def auto_refresh_expiring_tokens(token):
+    servers = get_all_servers(token)
+
+    for server in servers:
+        if server.get("oauth_expires"):
+            expires = datetime.fromisoformat(server["oauth_expires"])
+            if expires < datetime.now() + timedelta(days=7):
+                print(f"Refreshing {server['name']}")
+                refresh_integration_auth(server["id"], token)
+````
+
+</CodeGroup>
+
+### Updating Integration Settings
+
+<CodeGroup>
+```python Update Configuration
+def update_integration_config(server_id, new_config, token):
+    response = requests.patch(
+        f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "auth_config": new_config
+        }
+    )
+    
+    return response.json()
+
+# Example: Update Salesforce API version
+
+update_integration_config("mcp_server_123abc", {
+"instance_url": "https://mycompany.salesforce.com",
+"api_version": "59.0"
+}, token)
+
+````
+
+```python Manage Integration Lifecycle
+class IntegrationManager:
+    def __init__(self, management_token):
+        self.token = management_token
+
+    def create_integration(self, integration_type, name, config):
+        response = requests.post(
+            "https://api.kambrium.com/v1/mcp-servers",
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "integration_type": integration_type,
+                "name": name,
+                "auth_config": config
+            }
+        )
+        return response.json()
+
+    def delete_integration(self, server_id):
+        response = requests.delete(
+            f"https://api.kambrium.com/v1/mcp-servers/{server_id}",
+            headers={"Authorization": f"Bearer {self.token}"}
+        )
+        return response.status_code == 204
+
+    def list_integrations(self):
+        response = requests.get(
+            "https://api.kambrium.com/v1/mcp-servers",
+            headers={"Authorization": f"Bearer {self.token}"}
+        )
+        return response.json()["servers"]
+
+# Usage
+manager = IntegrationManager(your_token)
+integrations = manager.list_integrations()
+````
+
+</CodeGroup>
+
+---
+
+## Troubleshooting Common Issues
+
+### OAuth Authorization Problems
+
+<AccordionGroup>
+  <Accordion title="Authorization URL Not Working" icon="exclamation-triangle">
+    **Symptoms:** Browser shows error when visiting auth_url **Common Causes:**
+    - Expired authorization session - SaaS tool temporarily unavailable -
+    Network/firewall restrictions **Solutions:** 1. Generate a new auth_url by
+    recreating the MCP server 2. Check SaaS tool status pages 3. Try from a
+    different network/device 4. Contact support if issue persists
+  </Accordion>
+
+  <Accordion title="Permission Denied Errors" icon="lock">
+    **Symptoms:** OAuth completes but MCP tools fail with permission errors
+    **Common Causes:** - Insufficient OAuth scopes granted - SaaS tool admin
+    restrictions - Account lacks required permissions **Solutions:** 1.
+    Re-authorize with broader scopes 2. Contact SaaS tool admin for permissions
+    3. Use account with appropriate access level 4. Check integration-specific
+    permission requirements
+  </Accordion>
+
+  <Accordion title="Token Expiration Issues" icon="clock">
+    **Symptoms:** Integration works initially then fails with auth errors
+    **Common Causes:** - OAuth refresh token expired - SaaS tool revoked access
+    - Account password changed **Solutions:** 1. Re-authorize the integration 2.
+    Check SaaS tool security logs 3. Verify account status 4. Set up monitoring
+    for token expiration
+  </Accordion>
+</AccordionGroup>
+
+### Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Slow Tool Responses" icon="hourglass">
+    **Common Causes:** - SaaS tool API rate limits - Large data requests -
+    Network latency **Solutions:** - Implement request batching - Use pagination
+    for large datasets - Cache frequently accessed data - Consider geographic
+    proximity to SaaS tool servers
+  </Accordion>
+
+  <Accordion title="Rate Limit Errors" icon="gauge">
+    **Common Causes:** - Exceeding SaaS tool API limits - Concurrent request
+    bursts - Shared API quotas **Solutions:** - Implement exponential backoff -
+    Spread requests over time - Optimize query patterns - Consider upgrading
+    SaaS tool plan
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Security Best Practices
+
+### OAuth Security
+
+<AccordionGroup>
+  <Accordion title="Scope Minimization" icon="shield">
+    - Request only necessary OAuth scopes - Regularly audit granted permissions
+    - Use read-only access when possible - Separate integrations by use case
+  </Accordion>
+
+  <Accordion title="Token Management" icon="key">
+    - Monitor token expiration dates - Set up automatic refresh where possible -
+    Revoke unused integrations promptly - Audit OAuth grants in SaaS tool admin
+    panels
+  </Accordion>
+
+  <Accordion title="Access Control" icon="lock">
+    - Use service accounts where available - Limit integration access to
+    necessary users - Enable SaaS tool audit logging - Regular security reviews
+    of integrations
+  </Accordion>
+</AccordionGroup>
+
+### Compliance Considerations
+
+<AccordionGroup>
+  <Accordion title="Data Handling" icon="database">
+    - Understand data residency requirements - Review SaaS tool data processing
+    agreements - Implement appropriate data retention policies - Consider
+    GDPR/CCPA implications
+  </Accordion>
+
+  <Accordion title="Audit & Logging" icon="file-text">
+    - Enable detailed logging in SaaS tools - Monitor API usage patterns - Track
+    data access and modifications - Maintain integration change logs
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Complete Setup Guide" href="/guides/mcp-setup" icon="rocket">
+    Follow our step-by-step tutorial to set up your first integration
+  </Card>
+
+  <Card title="Tool Reference" href="/api-reference/tools" icon="wrench">
+    Browse available tools for each SaaS integration
+  </Card>
+
+  <Card title="Management API" href="/authentication/management-api" icon="cog">
+    Learn more about managing integrations programmatically
+  </Card>
+
+  <Card title="Dashboard" href="https://app.kambrium.com" icon="external-link">
+    Manage your integrations visually in the web interface
+  </Card>
+</CardGroup>
+
+<Note>
+  Need help with a specific integration? Join our [Discord
+  community](https://discord.gg/kambrium) or contact
+  [support@kambrium.com](mailto:support@kambrium.com).
+</Note>{" "}

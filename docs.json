@@ -59,10 +59,18 @@
         "tab": "API Reference",
         "groups": [
           {
+            "group": "Authentication",
+            "pages": [
+              "authentication/introduction",
+              "authentication/management-api",
+              "authentication/mcp-server",
+              "authentication/integrations"
+            ]
+          },
+          {
             "group": "API Documentation",
             "pages": [
-              "api-reference/introduction",
-              "api-reference/authentication"
+              "api-reference/introduction"
             ]
           },
           {
