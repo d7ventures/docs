@@ -197,23 +197,16 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ## Common Error Codes
 
-| Code     | Meaning          | Solution                                         |
-| -------- | ---------------- | ------------------------------------------------ |
-| `-32602` | Invalid params   | Check request format and parameters              |
-| `-32000` | Server error     | Session not initialized or authentication failed |
-| `-32601` | Method not found | Ensure MCP server supports tools functionality   |
-
-## Usage Notes
-
-- **Session Required**: This method requires an active MCP session (initialize first)
-- **Pagination**: Use `cursor` and `limit` for large tool lists
-- **Tool Execution**: Use the returned tool `name` values with the `tools/call` method
-- **Schema Validation**: The `inputSchema` defines required parameters for `tools/call`
+| Code     | Meaning        | Solution                                      |
+| -------- | -------------- | --------------------------------------------- |
+| `-32602` | Invalid params | Check request format and required parameters  |
+| `-32000` | Authentication | Verify OAuth token and session initialization |
+| `-32603` | Internal error | Server-side error, check logs                 |
 
 ## Next Steps
 
 After listing tools, you can:
 
-1. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
-2. **List resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
-3. **Get prompts** using [Get Prompts](/api-reference/mcp-interaction/get-prompts)
+- **Execute a tool** using [`tools/call`](./tools-call)
+- **Get argument completions** using `completion/complete`
+- **Subscribe to changes** via `notifications/tools/list_changed`

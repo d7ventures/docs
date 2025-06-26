@@ -1,0 +1,217 @@
+---
+title: "Read Resource"
+openapi: "POST /{tenant}/mcp"
+description: "Read the content of a specific resource using JSON-RPC 2.0 protocol. This method retrieves the actual data or content of a resource by its URI."
+---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP to read MCP resource content. Resources can contain text, binary data, or structured information.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.resources.read` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+4. **Resource Discovery**: Use [`resources/list`](./resources-list) to discover available resource URIs
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "resource-read-abc123",
+  "method": "resources/read",
+  "params": {
+    "uri": "crm://contacts/database"
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "read-contacts-1",
+    "method": "resources/read",
+    "params": {
+      "uri": "crm://contacts/database"
+    }
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"resources/read"`
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  Resource read parameters
+
+  <Expandable title="params properties">
+    <ParamField path="uri" type="string" required>
+      URI of the resource to read (from resources/list response)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  Resource content result
+  <Expandable title="result properties">
+    <ResponseField name="contents" type="array" required>
+      Array of content items for this resource
+      <Expandable title="content item">
+        <ResponseField name="uri" type="string" required>
+          The resource URI that was requested
+        </ResponseField>
+
+        <ResponseField name="mimeType" type="string" required>
+          MIME type of the content
+        </ResponseField>
+
+        <ResponseField name="text" type="string">
+          Text content (when mimeType is text-based)
+        </ResponseField>
+
+        <ResponseField name="blob" type="string">
+          Base64-encoded binary content (when mimeType is binary)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+  </Expandable>
+</ResponseField>
+
+## Example Responses
+
+<ResponseExample>
+```json Text Resource Response
+{
+  "jsonrpc": "2.0",
+  "id": "resource-read-abc123",
+  "result": {
+    "contents": [
+      {
+        "uri": "crm://contacts/database",
+        "mimeType": "application/json",
+        "text": "{\n  \"contacts\": [\n    {\n      \"id\": 123,\n      \"name\": \"John Doe\",\n      \"email\": \"john@example.com\",\n      \"company\": \"Acme Corp\",\n      \"created_at\": \"2024-01-15T10:30:00Z\"\n    },\n    {\n      \"id\": 124,\n      \"name\": \"Jane Smith\",\n      \"email\": \"jane@example.com\",\n      \"company\": \"TechStart Inc\",\n      \"created_at\": \"2024-01-16T14:22:00Z\"\n    }\n  ],\n  \"total_count\": 2,\n  \"last_updated\": \"2024-01-16T14:22:00Z\"\n}"
+      }
+    ]
+  }
+}
+```
+
+```json CSV Resource Response
+{
+  "jsonrpc": "2.0",
+  "id": "resource-read-abc123",
+  "result": {
+    "contents": [
+      {
+        "uri": "file://reports/sales_data.csv",
+        "mimeType": "text/csv",
+        "text": "Date,Customer,Amount,Status\n2024-01-15,Acme Corp,25000,Closed\n2024-01-16,TechStart Inc,15000,Open\n2024-01-17,Global Solutions,50000,Closed"
+      }
+    ]
+  }
+}
+```
+
+```json Binary Resource Response
+{
+  "jsonrpc": "2.0",
+  "id": "resource-read-abc123",
+  "result": {
+    "contents": [
+      {
+        "uri": "file://reports/monthly_report.pdf",
+        "mimeType": "application/pdf",
+        "blob": "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoK..."
+      }
+    ]
+  }
+}
+```
+
+```json Resource Not Found Error
+{
+  "jsonrpc": "2.0",
+  "id": "resource-read-abc123",
+  "error": {
+    "code": -32002,
+    "message": "Resource not found",
+    "data": {
+      "uri": "crm://contacts/invalid",
+      "details": "The specified resource URI does not exist or is not accessible."
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Content Types
+
+Resources can contain different types of content:
+
+| MIME Type          | Content Field | Description          |
+| ------------------ | ------------- | -------------------- |
+| `text/plain`       | `text`        | Plain text content   |
+| `text/csv`         | `text`        | CSV data             |
+| `application/json` | `text`        | JSON structured data |
+| `text/xml`         | `text`        | XML documents        |
+| `application/pdf`  | `blob`        | Binary PDF files     |
+| `image/png`        | `blob`        | Binary image data    |
+| `image/jpeg`       | `blob`        | Binary image data    |
+
+## Common Error Codes
+
+| Code     | Meaning            | Solution                                       |
+| -------- | ------------------ | ---------------------------------------------- |
+| `-32002` | Resource not found | Verify URI exists with `resources/list`        |
+| `-32000` | Authentication     | Verify OAuth token and required scopes         |
+| `-32602` | Invalid params     | Check URI format and encoding                  |
+| `-32603` | Internal error     | Server-side error, check resource availability |
+
+## URI Format Guidelines
+
+Different resource URI schemes have specific formats:
+
+- **CRM Resources**: `crm://[type]/[id]` (e.g., `crm://contacts/123`)
+- **File Resources**: `file://[path]` (e.g., `file://reports/data.csv`)
+- **API Resources**: `api://[endpoint]` (e.g., `api://analytics/kpis`)
+- **Database Resources**: `db://[table]/[query]` (e.g., `db://users/active`)
+
+## Next Steps
+
+After reading a resource, you can:
+
+- **Parse the content** based on the `mimeType`
+- **Use in tool calls** by referencing the resource URI
+- **Subscribe to updates** via `resources/subscribe`
+- **Cache content** for improved performance (respect TTL if provided)

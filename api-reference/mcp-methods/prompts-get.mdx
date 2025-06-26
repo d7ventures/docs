@@ -1,0 +1,271 @@
+---
+title: "Get Prompt"
+openapi: "POST /{tenant}/mcp"
+description: "Retrieve a specific prompt with argument substitution using JSON-RPC 2.0 protocol. This method returns the rendered prompt content with provided arguments."
+---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP to get MCP prompt content. Prompts are templates that can be customized with arguments to generate AI-ready conversation content.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+4. **Prompt Discovery**: Use [`prompts/list`](./prompts-list) to discover available prompts and their arguments
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "prompt-get-abc123",
+  "method": "prompts/get",
+  "params": {
+    "name": "analyze_sales_performance",
+    "arguments": {
+      "time_period": "last 30 days",
+      "sales_rep": "John Smith",
+      "metric_focus": "revenue"
+    }
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "get-prompt-1",
+    "method": "prompts/get",
+    "params": {
+      "name": "customer_outreach_email",
+      "arguments": {
+        "customer_name": "Jane Doe",
+        "company_name": "Acme Corp",
+        "purpose": "follow-up"
+      }
+    }
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"prompts/get"`
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  Prompt retrieval parameters
+
+  <Expandable title="params properties">
+    <ParamField path="name" type="string" required>
+      Name of the prompt to retrieve (from prompts/list response)
+    </ParamField>
+    
+    <ParamField path="arguments" type="object">
+      Prompt arguments for template substitution
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  Prompt content result
+  <Expandable title="result properties">
+    <ResponseField name="description" type="string">
+      Description of the rendered prompt
+    </ResponseField>
+
+    <ResponseField name="messages" type="array" required>
+      Array of conversation messages for the AI system
+      <Expandable title="message object">
+        <ResponseField name="role" type="string" required>
+          Message role: `"user"`, `"assistant"`, or `"system"`
+        </ResponseField>
+
+        <ResponseField name="content" type="object" required>
+          Message content
+          <Expandable title="content properties">
+            <ResponseField name="type" type="string" required>
+              Content type: `"text"`, `"image"`, or `"resource"`
+            </ResponseField>
+
+            <ResponseField name="text" type="string">
+              Text content (when type is "text")
+            </ResponseField>
+
+            <ResponseField name="data" type="string">
+              Base64-encoded data (when type is "image")
+            </ResponseField>
+
+            <ResponseField name="mimeType" type="string">
+              MIME type for data content
+            </ResponseField>
+
+            <ResponseField name="uri" type="string">
+              Resource URI (when type is "resource")
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+  </Expandable>
+</ResponseField>
+
+## Example Responses
+
+<ResponseExample>
+```json Sales Analysis Prompt
+{
+  "jsonrpc": "2.0",
+  "id": "prompt-get-abc123",
+  "result": {
+    "description": "Sales performance analysis for John Smith over the last 30 days",
+    "messages": [
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "Please analyze the sales performance for John Smith over the last 30 days, focusing specifically on revenue metrics.\n\nProvide a comprehensive analysis including:\n\n1. **Revenue Performance**\n   - Total revenue generated\n   - Average deal size\n   - Revenue growth compared to previous period\n   - Revenue trend analysis\n\n2. **Deal Analysis**\n   - Number of deals closed\n   - Conversion rates\n   - Deal velocity\n   - Pipeline health\n\n3. **Performance Insights**\n   - Key strengths and achievements\n   - Areas for improvement\n   - Recommended actions\n\n4. **Comparative Analysis**\n   - Performance vs. team average\n   - Performance vs. targets\n   - Historical performance trends\n\nBase your analysis on the available CRM data and provide actionable recommendations."
+        }
+      }
+    ]
+  }
+}
+```
+
+```json Email Generation Prompt
+{
+  "jsonrpc": "2.0",
+  "id": "prompt-get-abc123",
+  "result": {
+    "description": "Customer outreach email for Jane Doe at Acme Corp",
+    "messages": [
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "Generate a professional follow-up email for Jane Doe at Acme Corp.\n\nContext:\n- Customer: Jane Doe\n- Company: Acme Corp\n- Purpose: Follow-up communication\n- Tone: Professional\n\nEmail Requirements:\n1. Personalized greeting using the customer's name\n2. Reference to previous interaction or meeting\n3. Clear value proposition\n4. Specific next steps or call-to-action\n5. Professional closing\n\nThe email should be:\n- Concise but informative\n- Professional in tone\n- Focused on customer value\n- Easy to respond to\n\nPlease format as a complete email with subject line."
+        }
+      }
+    ]
+  }
+}
+```
+
+```json Prompt with Resource Reference
+{
+  "jsonrpc": "2.0",
+  "id": "prompt-get-abc123",
+  "result": {
+    "description": "Deal risk assessment with data context",
+    "messages": [
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "Analyze the risk factors for deals currently in the pipeline.\n\nUse the following data sources for your analysis:"
+        }
+      },
+      {
+        "role": "user",
+        "content": {
+          "type": "resource",
+          "uri": "crm://deals/pipeline"
+        }
+      },
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "Focus your risk assessment on:\n1. Deal progression velocity\n2. Stakeholder engagement levels\n3. Competitive landscape\n4. Budget confirmation status\n\nProvide specific recommendations for high-risk deals."
+        }
+      }
+    ]
+  }
+}
+```
+
+```json Prompt Not Found Error
+{
+  "jsonrpc": "2.0",
+  "id": "prompt-get-abc123",
+  "error": {
+    "code": -32001,
+    "message": "Prompt not found",
+    "data": {
+      "prompt_name": "invalid_prompt",
+      "available_prompts": [
+        "analyze_sales_performance",
+        "customer_outreach_email",
+        "deal_risk_assessment"
+      ]
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Message Roles
+
+Prompts can contain messages with different roles:
+
+| Role        | Purpose                                    | Example Usage                    |
+| ----------- | ------------------------------------------ | -------------------------------- |
+| `user`      | Instructions or questions to the AI system | Analysis requests, tasks         |
+| `assistant` | Pre-defined AI responses or examples       | Few-shot learning examples       |
+| `system`    | System-level instructions or context       | Behavior guidelines, constraints |
+
+## Argument Substitution
+
+Prompts support dynamic argument substitution:
+
+- **Required arguments** must be provided or the request fails
+- **Optional arguments** can be omitted (default values may apply)
+- **Invalid arguments** return validation errors
+- **Type validation** ensures arguments match expected formats
+
+## Common Error Codes
+
+| Code     | Meaning          | Solution                                    |
+| -------- | ---------------- | ------------------------------------------- |
+| `-32001` | Prompt not found | Use `prompts/list` to get available prompts |
+| `-32602` | Invalid params   | Check prompt arguments against schema       |
+| `-32000` | Authentication   | Verify OAuth token and required scopes      |
+| `-32603` | Internal error   | Server-side error, check prompt template    |
+
+## Next Steps
+
+After getting a prompt, you can:
+
+- **Use with AI systems** by sending the messages to language models
+- **Combine with resources** by including resource URIs in conversations
+- **Chain prompts** for complex multi-step workflows
+- **Cache results** for performance (if appropriate for your use case)

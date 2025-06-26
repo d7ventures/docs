@@ -1,0 +1,541 @@
+---
+title: "Error Handling"
+description: "Comprehensive guide to MCP error codes, recovery strategies, and building resilient AI-tool integrations."
+---
+
+## Error Response Format
+
+MCP uses **JSON-RPC 2.0 error format** for all error conditions. Every error response contains structured information for programmatic handling.
+
+### **Standard Error Structure**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "Missing required parameter 'name'",
+      "parameter": "name",
+      "received": {}
+    }
+  }
+}
+```
+
+### **Error Components**
+
+| Field     | Type    | Description                         |
+| --------- | ------- | ----------------------------------- |
+| `code`    | integer | Standard JSON-RPC error code        |
+| `message` | string  | Human-readable error description    |
+| `data`    | object  | Additional error context (optional) |
+
+## Standard Error Codes
+
+### **JSON-RPC Protocol Errors**
+
+| Code     | Name             | Meaning          | Common Causes             |
+| -------- | ---------------- | ---------------- | ------------------------- |
+| `-32700` | Parse error      | Invalid JSON     | Malformed request body    |
+| `-32600` | Invalid Request  | Invalid JSON-RPC | Missing required fields   |
+| `-32601` | Method not found | Unknown method   | Typo in method name       |
+| `-32602` | Invalid params   | Bad parameters   | Wrong parameter types     |
+| `-32603` | Internal error   | Server error     | Unexpected server failure |
+
+### **MCP-Specific Error Codes**
+
+| Code     | Name               | Meaning             | Recovery Strategy           |
+| -------- | ------------------ | ------------------- | --------------------------- |
+| `-32000` | Authentication     | Auth failure        | Refresh token, reinitialize |
+| `-32001` | Resource not found | Missing resource    | Verify resource exists      |
+| `-32002` | Permission denied  | Insufficient scope  | Check token permissions     |
+| `-32003` | Session expired    | Stale session       | Start new session           |
+| `-32004` | Rate limited       | Too many requests   | Implement backoff           |
+| `-32005` | Capability missing | Feature unavailable | Check server capabilities   |
+
+## Error Categories
+
+### **1. Authentication Errors**
+
+<Accordion title="Authentication Error Examples">
+```json Session Not Initialized
+{
+  "error": {
+    "code": -32000,
+    "message": "Session not initialized",
+    "data": {
+      "details": "Call 'initialize' method first to establish session",
+      "required_action": "initialize"
+    }
+  }
+}
+```
+
+```json Invalid Token
+{
+  "error": {
+    "code": -32000,
+    "message": "Invalid authentication token",
+    "data": {
+      "details": "OAuth token expired or invalid",
+      "token_type": "oauth",
+      "expires_at": "2024-01-15T10:30:00Z"
+    }
+  }
+}
+```
+
+```json Insufficient Scope
+{
+  "error": {
+    "code": -32002,
+    "message": "Permission denied",
+    "data": {
+      "details": "Token missing required scope",
+      "required_scope": "mcp.tools.execute",
+      "provided_scopes": ["mcp.read"]
+    }
+  }
+}
+```
+
+</Accordion>
+
+**Recovery Strategies:**
+
+1. **Refresh authentication** token
+2. **Reinitialize session** with valid credentials
+3. **Request additional scopes** if needed
+
+### **2. Session Management Errors**
+
+<Accordion title="Session Error Examples">
+```json Session Expired
+{
+  "error": {
+    "code": -32003,
+    "message": "Session expired",
+    "data": {
+      "details": "Session timed out after 30 minutes of inactivity",
+      "session_id": "session_abc123",
+      "expired_at": "2024-01-15T11:00:00Z"
+    }
+  }
+}
+```
+
+```json Invalid Session
+{
+  "error": {
+    "code": -32001,
+    "message": "Invalid session ID",
+    "data": {
+      "details": "Session ID not found or corrupted",
+      "session_id": "invalid_session_123"
+    }
+  }
+}
+```
+
+</Accordion>
+
+**Recovery Strategies:**
+
+1. **Start new session** with initialize
+2. **Restore subscriptions** and state
+3. **Implement session monitoring**
+
+### **3. Resource Access Errors**
+
+<Accordion title="Resource Error Examples">
+```json Resource Not Found
+{
+  "error": {
+    "code": -32001,
+    "message": "Resource not found",
+    "data": {
+      "details": "The specified resource URI does not exist",
+      "uri": "crm://contacts/invalid_id",
+      "available_schemes": ["crm://", "file://", "api://"]
+    }
+  }
+}
+```
+
+```json Resource Access Denied
+{
+  "error": {
+    "code": -32002,
+    "message": "Resource access denied",
+    "data": {
+      "details": "Insufficient permissions for resource",
+      "uri": "file://sensitive/data.csv",
+      "required_permission": "admin"
+    }
+  }
+}
+```
+
+</Accordion>
+
+**Recovery Strategies:**
+
+1. **Verify resource existence** with `resources/list`
+2. **Check permissions** and request access
+3. **Use alternative resources** if available
+
+### **4. Tool Execution Errors**
+
+<Accordion title="Tool Error Examples">
+```json Tool Not Found
+{
+  "error": {
+    "code": -32001,
+    "message": "Tool not found",
+    "data": {
+      "details": "The specified tool does not exist",
+      "tool_name": "invalid_tool",
+      "available_tools": ["get_contacts", "create_deal", "update_contact"]
+    }
+  }
+}
+```
+
+```json Tool Execution Failed
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-123",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: API rate limit exceeded. Please try again in 60 seconds."
+      }
+    ],
+    "isError": true
+  }
+}
+```
+
+```json Invalid Tool Arguments
+{
+  "error": {
+    "code": -32602,
+    "message": "Invalid tool arguments",
+    "data": {
+      "details": "Argument validation failed",
+      "tool_name": "get_contacts",
+      "validation_errors": [
+        {
+          "parameter": "limit",
+          "error": "Must be between 1 and 100",
+          "received": 500
+        }
+      ]
+    }
+  }
+}
+```
+
+</Accordion>
+
+**Recovery Strategies:**
+
+1. **Validate arguments** against tool schema
+2. **Handle rate limits** with exponential backoff
+3. **Use alternative tools** for similar functionality
+
+## Error Recovery Patterns
+
+### **1. Automatic Retry with Backoff**
+
+```javascript
+class MCPErrorHandler {
+  async retryWithBackoff(operation, maxRetries = 3) {
+    let delay = 1000; // Start with 1 second
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!this.isRetryable(error) || attempt === maxRetries) {
+          throw error;
+        }
+
+        console.log(`Attempt ${attempt} failed, retrying in ${delay}ms`);
+        await this.sleep(delay);
+        delay *= 2; // Exponential backoff
+      }
+    }
+  }
+
+  isRetryable(error) {
+    const retryableCodes = [-32000, -32003, -32004, -32603];
+    return retryableCodes.includes(error.code);
+  }
+
+  sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+}
+```
+
+### **2. Circuit Breaker Pattern**
+
+```javascript
+class MCPCircuitBreaker {
+  constructor(threshold = 5, timeout = 60000) {
+    this.threshold = threshold;
+    this.timeout = timeout;
+    this.failures = 0;
+    this.lastFailureTime = 0;
+    this.state = "CLOSED"; // CLOSED, OPEN, HALF_OPEN
+  }
+
+  async execute(operation) {
+    if (this.state === "OPEN") {
+      if (Date.now() - this.lastFailureTime > this.timeout) {
+        this.state = "HALF_OPEN";
+      } else {
+        throw new Error("Circuit breaker is OPEN");
+      }
+    }
+
+    try {
+      const result = await operation();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+
+  onSuccess() {
+    this.failures = 0;
+    this.state = "CLOSED";
+  }
+
+  onFailure() {
+    this.failures++;
+    this.lastFailureTime = Date.now();
+
+    if (this.failures >= this.threshold) {
+      this.state = "OPEN";
+    }
+  }
+}
+```
+
+### **3. Session Recovery Handler**
+
+```javascript
+class SessionRecoveryHandler {
+  constructor(mcpClient) {
+    this.client = mcpClient;
+    this.subscriptions = new Set();
+    this.logLevel = "info";
+  }
+
+  async handleSessionError(error) {
+    console.log("Session error detected:", error.message);
+
+    switch (error.code) {
+      case -32000: // Not initialized
+      case -32001: // Invalid session
+      case -32003: // Session expired
+        return await this.recoverSession();
+
+      case -32002: // Permission denied
+        throw new Error("Authentication failed - check token scopes");
+
+      default:
+        throw error;
+    }
+  }
+
+  async recoverSession() {
+    console.log("Recovering session...");
+
+    // 1. Reinitialize session
+    await this.client.initialize();
+
+    // 2. Restore logging level
+    if (this.logLevel !== "info") {
+      await this.client.setLogLevel(this.logLevel);
+    }
+
+    // 3. Restore subscriptions
+    for (const subscription of this.subscriptions) {
+      await this.client.subscribe(subscription);
+    }
+
+    console.log("Session recovered successfully");
+  }
+
+  trackSubscription(uri) {
+    this.subscriptions.add(uri);
+  }
+
+  setLogLevel(level) {
+    this.logLevel = level;
+  }
+}
+```
+
+## Error Monitoring
+
+### **Error Classification**
+
+```javascript
+class ErrorMetrics {
+  constructor() {
+    this.errors = {
+      authentication: 0,
+      session: 0,
+      resource: 0,
+      tool: 0,
+      network: 0,
+      unknown: 0,
+    };
+  }
+
+  recordError(error) {
+    const category = this.categorizeError(error);
+    this.errors[category]++;
+
+    // Log for monitoring
+    console.error(`MCP Error [${category}]:`, {
+      code: error.code,
+      message: error.message,
+      data: error.data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  categorizeError(error) {
+    if (error.code >= -32000 && error.code <= -32003) {
+      return "authentication";
+    } else if (error.code === -32001) {
+      return "resource";
+    } else if (error.code === -32004) {
+      return "network";
+    } else if (error.code >= -32600 && error.code <= -32603) {
+      return "session";
+    } else {
+      return "unknown";
+    }
+  }
+
+  getErrorStats() {
+    return { ...this.errors };
+  }
+}
+```
+
+### **Health Dashboard**
+
+```javascript
+class MCPHealthMonitor {
+  constructor(mcpClient) {
+    this.client = mcpClient;
+    this.errorMetrics = new ErrorMetrics();
+    this.healthStatus = "healthy";
+    this.lastSuccessfulPing = Date.now();
+  }
+
+  async startMonitoring(intervalMs = 30000) {
+    setInterval(async () => {
+      try {
+        await this.client.ping();
+        this.lastSuccessfulPing = Date.now();
+        this.healthStatus = "healthy";
+      } catch (error) {
+        this.errorMetrics.recordError(error);
+        this.healthStatus = "unhealthy";
+
+        // Auto-recovery attempt
+        try {
+          await this.sessionRecovery.handleSessionError(error);
+          this.healthStatus = "recovering";
+        } catch (recoveryError) {
+          console.error("Recovery failed:", recoveryError);
+        }
+      }
+    }, intervalMs);
+  }
+
+  getHealthStatus() {
+    return {
+      status: this.healthStatus,
+      lastPing: this.lastSuccessfulPing,
+      errors: this.errorMetrics.getErrorStats(),
+      uptime: Date.now() - this.startTime,
+    };
+  }
+}
+```
+
+## Best Practices
+
+### **Error Handling Strategy**
+
+1. **Classify errors** by type and recoverability
+2. **Implement retry logic** for transient failures
+3. **Use circuit breakers** for persistent issues
+4. **Monitor error patterns** for system health
+5. **Graceful degradation** when features unavailable
+
+### **User Experience**
+
+```javascript
+async function executeWithFallback(primaryOperation, fallbackOperation) {
+  try {
+    return await primaryOperation();
+  } catch (error) {
+    if (error.code === -32005) {
+      // Capability missing
+      console.log("Primary method unavailable, using fallback");
+      return await fallbackOperation();
+    }
+    throw error;
+  }
+}
+```
+
+### **Logging and Debugging**
+
+```javascript
+class MCPLogger {
+  static logError(context, error, request = null) {
+    console.error(`MCP Error in ${context}:`, {
+      error: {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      },
+      request: request,
+      timestamp: new Date().toISOString(),
+      stackTrace: error.stack,
+    });
+  }
+
+  static logRecovery(context, action) {
+    console.info(`MCP Recovery in ${context}:`, {
+      action: action,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+## Next Steps
+
+With robust error handling in place:
+
+- **[Session Management](./session-management)** - Prevent session-related errors
+- **[MCP Methods](../mcp-methods/tools-list)** - Implement specific method error handling
+- **[Protocol Overview](./overview)** - Understand the full MCP architecture

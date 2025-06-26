@@ -13,7 +13,7 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to execute MCP tools. The tool nam
 1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
 2. **Authentication**: Valid OAuth token or PAT with `mcp.tools.execute` scope
 3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
-4. **Tool Discovery**: Use [List Tools](/api-reference/mcp-interaction/list-tools) to discover available tools and their parameters
+4. **Tool Discovery**: Use [`tools/list`](./tools-list) to discover available tools and their parameters
 
 ## Request Format
 
@@ -205,10 +205,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   "jsonrpc": "2.0",
   "id": "tool-call-abc123",
   "error": {
-    "code": -32602,
-    "message": "Invalid params",
+    "code": -32001,
+    "message": "Tool not found",
     "data": {
-      "details": "Tool 'nonexistent_tool' not found. Use tools/list to see available tools."
+      "tool_name": "invalid_tool",
+      "available_tools": ["get_contacts", "create_deal", "update_contact"]
     }
   }
 }
@@ -218,101 +219,27 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ## Common Error Codes
 
-| Code     | Meaning          | Solution                                         |
-| -------- | ---------------- | ------------------------------------------------ |
-| `-32602` | Invalid params   | Check tool name and arguments format             |
-| `-32000` | Server error     | Session not initialized or authentication failed |
-| `-32601` | Method not found | Ensure MCP server supports tools functionality   |
-| `-32603` | Internal error   | Tool execution failed on server side             |
+| Code     | Meaning        | Solution                                     |
+| -------- | -------------- | -------------------------------------------- |
+| `-32001` | Tool not found | Use `tools/list` to get available tools      |
+| `-32602` | Invalid params | Check tool arguments against inputSchema     |
+| `-32000` | Authentication | Verify OAuth token and required scopes       |
+| `-32603` | Internal error | Server-side error, check tool implementation |
 
 ## Tool Argument Validation
 
-Tools validate arguments against their `inputSchema` (from tools/list):
+Tools validate arguments against their `inputSchema` (from `tools/list`):
 
-<CodeGroup>
-```json Tool Schema Example
-{
-  "name": "create_deal",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "title": {"type": "string"},
-      "value": {"type": "number", "minimum": 0},
-      "person_id": {"type": "integer"}
-    },
-    "required": ["title", "value"]
-  }
-}
-```
-
-```json Valid Arguments
-{
-  "name": "create_deal",
-  "arguments": {
-    "title": "New Partnership Deal",
-    "value": 50000,
-    "person_id": 123
-  }
-}
-```
-
-```json Invalid Arguments (Missing Required)
-{
-  "name": "create_deal",
-  "arguments": {
-    "title": "Incomplete Deal"
-    // Missing required "value" field
-  }
-}
-```
-
-</CodeGroup>
-
-## Content Types
-
-Tools can return different content types:
-
-### Text Content
-
-```json
-{
-  "type": "text",
-  "text": "Operation completed successfully"
-}
-```
-
-### Image Content
-
-```json
-{
-  "type": "image",
-  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
-  "mimeType": "image/png"
-}
-```
-
-### Resource Reference
-
-```json
-{
-  "type": "resource",
-  "uri": "crm://contacts/123",
-  "mimeType": "application/json"
-}
-```
-
-## Usage Notes
-
-- **Error Handling**: Tools can succeed but return `isError: true` for business logic errors
-- **Async Operations**: Tool calls are synchronous - they complete before returning
-- **Rate Limiting**: Some tools may have rate limits based on the underlying SaaS API
-- **Permissions**: Tool execution respects the authenticated user's permissions in the target system
+- **Required fields** must be provided
+- **Data types** must match schema definitions
+- **Value constraints** (min/max, enums) are enforced
+- **Invalid arguments** return `-32602` error
 
 ## Next Steps
 
-After calling tools, you can:
+After calling a tool, you can:
 
-1. **Process results** and extract relevant information
-2. **Call additional tools** for follow-up operations
-3. **Access resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
-4. **Use prompts** with [Get Prompts](/api-reference/mcp-interaction/get-prompts)
+- **Handle the response** based on `isError` flag
+- **Parse content** based on content type (text/image/resource)
+- **Use returned resources** with [`resources/read`](./resources-read)
+- **Chain tool calls** for complex workflows

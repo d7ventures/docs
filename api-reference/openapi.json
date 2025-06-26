@@ -474,7 +474,22 @@
                     "$ref": "#/components/schemas/ResourcesListRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/ResourcesReadRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/PromptsListRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PromptsGetRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PingRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LoggingSetLevelRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CompletionCompleteRequest"
                   },
                   {
                     "$ref": "#/components/schemas/InitializedNotification"
@@ -512,7 +527,22 @@
                       "$ref": "#/components/schemas/ResourcesListResponse"
                     },
                     {
+                      "$ref": "#/components/schemas/ResourcesReadResponse"
+                    },
+                    {
                       "$ref": "#/components/schemas/PromptsListResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PromptsGetResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PingResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LoggingSetLevelResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CompletionCompleteResponse"
                     },
                     {
                       "$ref": "#/components/schemas/JsonRpcError"
@@ -1522,6 +1552,458 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ResourcesReadRequest": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "resource-read-123"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "resources/read"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "uri"
+            ],
+            "properties": {
+              "uri": {
+                "type": "string",
+                "example": "crm://contacts/database"
+              }
+            }
+          }
+        }
+      },
+      "ResourcesReadResponse": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "required": [
+              "contents"
+            ],
+            "properties": {
+              "contents": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "uri",
+                    "mimeType"
+                  ],
+                  "properties": {
+                    "uri": {
+                      "type": "string"
+                    },
+                    "mimeType": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "blob": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "PromptsGetRequest": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "prompt-get-123"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "prompts/get"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "analyze_sales_performance"
+              },
+              "arguments": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "PromptsGetResponse": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "required": [
+              "messages"
+            ],
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "messages": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "role",
+                    "content"
+                  ],
+                  "properties": {
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "assistant",
+                        "system"
+                      ]
+                    },
+                    "content": {
+                      "type": "object",
+                      "required": [
+                        "type"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "text",
+                            "image",
+                            "resource"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "data": {
+                          "type": "string"
+                        },
+                        "mimeType": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "PingRequest": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "ping-123"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "ping"
+            ]
+          }
+        }
+      },
+      "PingResponse": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "example": {}
+          }
+        }
+      },
+      "LoggingSetLevelRequest": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "logging-123"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "logging/setLevel"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "level"
+            ],
+            "properties": {
+              "level": {
+                "type": "string",
+                "enum": [
+                  "debug",
+                  "info",
+                  "notice",
+                  "warning",
+                  "error",
+                  "critical",
+                  "alert",
+                  "emergency"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "LoggingSetLevelResponse": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "example": {}
+          }
+        }
+      },
+      "CompletionCompleteRequest": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "example": "completion-123"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "completion/complete"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "required": [
+              "ref",
+              "argument"
+            ],
+            "properties": {
+              "ref": {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "ref/tool",
+                      "ref/prompt",
+                      "ref/resource"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "uri": {
+                    "type": "string"
+                  }
+                }
+              },
+              "argument": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "value"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "CompletionCompleteResponse": {
+        "type": "object",
+        "required": [
+          "jsonrpc",
+          "id",
+          "result"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "required": [
+              "completion"
+            ],
+            "properties": {
+              "completion": {
+                "type": "object",
+                "required": [
+                  "values",
+                  "total",
+                  "hasMore"
+                ],
+                "properties": {
+                  "values": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "total": {
+                    "type": "integer"
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         }
       },

@@ -1,5 +1,5 @@
 ---
-title: "Get Resources"
+title: "List Resources"
 openapi: "POST /{tenant}/mcp"
 description: "List available resources from an MCP server using JSON-RPC 2.0 protocol. Resources represent data or content that can be read or referenced."
 ---
@@ -164,16 +164,6 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
           "audience": ["human"],
           "priority": 0.6
         }
-      },
-      {
-        "uri": "api://analytics/dashboard",
-        "name": "Analytics Dashboard Data",
-        "description": "Real-time analytics and KPI data",
-        "mimeType": "application/json",
-        "annotations": {
-          "audience": ["llm"],
-          "priority": 0.7
-        }
       }
     ],
     "nextCursor": null
@@ -199,78 +189,28 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ## Resource URI Schemes
 
-Resources use different URI schemes to indicate their type and location:
+Different MCP servers use various URI schemes to organize resources:
 
-### CRM Resources
-
-```
-crm://contacts/123          # Specific contact
-crm://deals/active          # Active deals collection
-crm://companies/tech        # Companies in tech sector
-```
-
-### File Resources
-
-```
-file://documents/contract.pdf    # PDF document
-file://images/logo.png          # Image file
-file://data/export.csv          # CSV data file
-```
-
-### API Resources
-
-```
-api://analytics/dashboard       # Live API data
-api://reports/sales            # Generated reports
-api://metrics/performance      # Performance metrics
-```
-
-### Database Resources
-
-```
-db://tables/customers          # Database table
-db://views/sales_summary       # Database view
-db://queries/top_performers    # Pre-defined query
-```
+| Scheme    | Example                       | Description                  |
+| --------- | ----------------------------- | ---------------------------- |
+| `crm://`  | `crm://contacts/123`          | CRM system data              |
+| `file://` | `file://documents/report.pdf` | File system resources        |
+| `api://`  | `api://analytics/dashboard`   | API endpoint data            |
+| `db://`   | `db://users/table`            | Database table/query results |
 
 ## Common Error Codes
 
-| Code     | Meaning          | Solution                                           |
-| -------- | ---------------- | -------------------------------------------------- |
-| `-32602` | Invalid params   | Check request format and parameters                |
-| `-32000` | Server error     | Session not initialized or authentication failed   |
-| `-32601` | Method not found | Ensure MCP server supports resources functionality |
-
-## Resource Annotations
-
-Resources include annotations to help clients understand their purpose:
-
-### Audience
-
-- `"human"` - Intended for human consumption
-- `"llm"` - Optimized for AI/LLM processing
-- `["human", "llm"]` - Suitable for both
-
-### Priority
-
-- `1.0` - Critical/primary resource
-- `0.8` - High importance
-- `0.5` - Medium importance
-- `0.2` - Low importance
-- `0.0` - Background/optional
-
-## Usage Notes
-
-- **Session Required**: This method requires an active MCP session (initialize first)
-- **Pagination**: Use `cursor` and `limit` for large resource lists
-- **Resource Access**: Use the returned resource `uri` values with the `resources/read` method
-- **Filtering**: Some servers may support filtering parameters (check server documentation)
+| Code     | Meaning        | Solution                                      |
+| -------- | -------------- | --------------------------------------------- |
+| `-32602` | Invalid params | Check pagination parameters                   |
+| `-32000` | Authentication | Verify OAuth token and session initialization |
+| `-32603` | Internal error | Server-side error, check logs                 |
 
 ## Next Steps
 
 After listing resources, you can:
 
-1. **Read resource content** using the `resources/read` method with the resource URI
-2. **Subscribe to changes** using `resources/subscribe` (if supported)
-3. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
-4. **Get prompts** using [Get Prompts](/api-reference/mcp-interaction/get-prompts)
+- **Read resource content** using [`resources/read`](./resources-read)
+- **Subscribe to changes** via `resources/subscribe`
+- **Filter by URI scheme** to find specific resource types
+- **Use resource URIs** in tool calls or prompts

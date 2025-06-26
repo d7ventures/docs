@@ -1,5 +1,5 @@
 ---
-title: "Get Prompts"
+title: "List Prompts"
 openapi: "POST /{tenant}/mcp"
 description: "List available prompts from an MCP server using JSON-RPC 2.0 protocol. Prompts are pre-defined templates that can be used with AI systems."
 ---
@@ -193,27 +193,6 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
             "required": false
           }
         ]
-      },
-      {
-        "name": "market_research_summary",
-        "description": "Generate market research summary for a specific industry",
-        "arguments": [
-          {
-            "name": "industry",
-            "description": "Target industry for research (e.g., 'SaaS', 'Healthcare', 'Manufacturing')",
-            "required": true
-          },
-          {
-            "name": "focus_area",
-            "description": "Specific area to focus on (trends, competitors, opportunities)",
-            "required": false
-          },
-          {
-            "name": "region",
-            "description": "Geographic region for the research",
-            "required": false
-          }
-        ]
       }
     ],
     "nextCursor": null
@@ -239,77 +218,28 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ## Prompt Categories
 
-Prompts are typically organized by use case:
+Prompts can serve various purposes in AI workflows:
 
-### Sales & CRM Prompts
-
-- Customer outreach templates
-- Deal analysis prompts
-- Sales performance reviews
-- Lead qualification scripts
-
-### Analytics & Reporting
-
-- Performance analysis prompts
-- Data interpretation templates
-- KPI summary generators
-- Trend analysis prompts
-
-### Communication Templates
-
-- Email templates
-- Meeting summaries
-- Proposal generators
-- Follow-up scripts
-
-### Research & Intelligence
-
-- Market research prompts
-- Competitor analysis templates
-- Industry trend summaries
-- Customer insight generators
+| Category               | Example                     | Use Case                   |
+| ---------------------- | --------------------------- | -------------------------- |
+| **Analysis**           | `analyze_sales_performance` | Data analysis and insights |
+| **Content Generation** | `customer_outreach_email`   | Email, document creation   |
+| **Assessment**         | `deal_risk_assessment`      | Risk evaluation, scoring   |
+| **Research**           | `market_research_summary`   | Information gathering      |
 
 ## Common Error Codes
 
-| Code     | Meaning          | Solution                                         |
-| -------- | ---------------- | ------------------------------------------------ |
-| `-32602` | Invalid params   | Check request format and parameters              |
-| `-32000` | Server error     | Session not initialized or authentication failed |
-| `-32601` | Method not found | Ensure MCP server supports prompts functionality |
-
-## Prompt Arguments
-
-Prompts can have various types of arguments:
-
-### Required Arguments
-
-Arguments marked with `"required": true` must be provided when using the prompt.
-
-### Optional Arguments
-
-Arguments marked with `"required": false` can be omitted, often with sensible defaults.
-
-### Argument Types
-
-While not explicitly typed in the MCP protocol, common argument patterns include:
-
-- **Text** - Free-form text input
-- **Choice** - Selection from predefined options
-- **Date/Time** - Temporal specifications
-- **Numeric** - Quantities, percentages, or measurements
-
-## Usage Notes
-
-- **Session Required**: This method requires an active MCP session (initialize first)
-- **Pagination**: Use `cursor` and `limit` for large prompt lists
-- **Prompt Retrieval**: Use the returned prompt `name` values with the `prompts/get` method
-- **Dynamic Content**: Prompts may generate different content based on current data context
+| Code     | Meaning        | Solution                                      |
+| -------- | -------------- | --------------------------------------------- |
+| `-32602` | Invalid params | Check pagination parameters                   |
+| `-32000` | Authentication | Verify OAuth token and session initialization |
+| `-32603` | Internal error | Server-side error, check logs                 |
 
 ## Next Steps
 
 After listing prompts, you can:
 
-1. **Retrieve prompt content** using the `prompts/get` method with the prompt name and arguments
-2. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
-3. **Access resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
-4. **List tools** using [List Tools](/api-reference/mcp-interaction/list-tools)
+- **Get prompt content** using [`prompts/get`](./prompts-get)
+- **Use argument completion** with `completion/complete`
+- **Subscribe to changes** via `notifications/prompts/list_changed`
+- **Filter prompts** by categories or use cases

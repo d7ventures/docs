@@ -1,0 +1,418 @@
+---
+title: "Utilities"
+openapi: "POST /{tenant}/mcp"
+description: "MCP utility methods including ping (health checks), logging configuration, and argument completion using JSON-RPC 2.0 protocol."
+---
+
+## Protocol Overview
+
+This endpoint provides **three essential utility methods** for MCP communication:
+
+1. **`ping`** - Health checks and connection monitoring
+2. **`logging/setLevel`** - Configure server logging levels
+3. **`completion/complete`** - Get argument completion suggestions
+
+All methods use **JSON-RPC 2.0** over HTTP with a single tenant endpoint.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with appropriate scopes
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+
+---
+
+## Ping Method
+
+Test connection health and measure latency.
+
+### Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "ping-123",
+  "method": "ping"
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "ping-health-check",
+    "method": "ping"
+  }'
+```
+
+</CodeGroup>
+
+### Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"ping"`
+</ParamField>
+
+### Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  Empty object `{}` (success indicator)
+</ResponseField>
+
+### Example Response
+
+<ResponseExample>
+```json Ping Success
+{
+  "jsonrpc": "2.0",
+  "id": "ping-123",
+  "result": {}
+}
+```
+
+</ResponseExample>
+
+---
+
+## Logging Method
+
+Configure the minimum log level for server messages.
+
+### Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "logging-123",
+  "method": "logging/setLevel",
+  "params": {
+    "level": "info"
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "set-log-level",
+    "method": "logging/setLevel",
+    "params": {
+      "level": "debug"
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"logging/setLevel"`
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  Logging configuration parameters
+
+  <Expandable title="params properties">
+    <ParamField path="level" type="string" required>
+      Log level to set. Valid values: `"debug"`, `"info"`, `"notice"`, `"warning"`, `"error"`, `"critical"`, `"alert"`, `"emergency"`
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Log Levels
+
+| Level       | Description                      | Use Case                          |
+| ----------- | -------------------------------- | --------------------------------- |
+| `debug`     | Detailed debugging information   | Development and troubleshooting   |
+| `info`      | General informational messages   | Normal operation monitoring       |
+| `notice`    | Normal but significant events    | Important operational events      |
+| `warning`   | Warning conditions               | Potential issues                  |
+| `error`     | Error conditions                 | Actual errors requiring attention |
+| `critical`  | Critical conditions              | Severe errors affecting service   |
+| `alert`     | Action must be taken immediately | System-wide failures              |
+| `emergency` | System is unusable               | Complete system failure           |
+
+### Example Response
+
+<ResponseExample>
+```json Logging Success
+{
+  "jsonrpc": "2.0",
+  "id": "logging-123",
+  "result": {}
+}
+```
+
+</ResponseExample>
+
+---
+
+## Completion Method
+
+Get intelligent argument completion suggestions for prompts, tools, and resources.
+
+### Request Format
+
+<CodeGroup>
+```json Tool Argument Completion
+{
+  "jsonrpc": "2.0",
+  "id": "completion-123",
+  "method": "completion/complete",
+  "params": {
+    "ref": {
+      "type": "ref/tool",
+      "name": "get_contacts"
+    },
+    "argument": {
+      "name": "status",
+      "value": "ac"
+    }
+  }
+}
+```
+
+```json Prompt Argument Completion
+{
+  "jsonrpc": "2.0",
+  "id": "completion-124",
+  "method": "completion/complete",
+  "params": {
+    "ref": {
+      "type": "ref/prompt",
+      "name": "analyze_sales_performance"
+    },
+    "argument": {
+      "name": "metric_focus",
+      "value": "rev"
+    }
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "complete-tool-args",
+    "method": "completion/complete",
+    "params": {
+      "ref": {
+        "type": "ref/tool",
+        "name": "get_deals"
+      },
+      "argument": {
+        "name": "status",
+        "value": "op"
+      }
+    }
+  }'
+```
+
+</CodeGroup>
+
+### Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"completion/complete"`
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  Completion request parameters
+
+  <Expandable title="params properties">
+    <ParamField path="ref" type="object" required>
+      Reference to the item being completed
+      <Expandable title="ref properties">
+        <ParamField path="type" type="string" required>
+          Reference type: `"ref/tool"`, `"ref/prompt"`, or `"ref/resource"`
+        </ParamField>
+
+        <ParamField path="name" type="string">
+          Name of tool/prompt (for ref/tool and ref/prompt)
+        </ParamField>
+
+        <ParamField path="uri" type="string">
+          Resource URI template (for ref/resource)
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+    <ParamField path="argument" type="object" required>
+      Argument being completed
+      <Expandable title="argument properties">
+        <ParamField path="name" type="string" required>
+          Name of the argument/parameter
+        </ParamField>
+
+        <ParamField path="value" type="string" required>
+          Partial value to complete
+        </ParamField>
+      </Expandable>
+    </ParamField>
+
+  </Expandable>
+</ParamField>
+
+### Response Format
+
+<ResponseField name="result" type="object" required>
+  Completion suggestions
+  <Expandable title="result properties">
+    <ResponseField name="completion" type="object" required>
+      Completion data
+      <Expandable title="completion properties">
+        <ResponseField name="values" type="array" required>
+          Array of completion suggestions (strings)
+        </ResponseField>
+
+        <ResponseField name="total" type="integer" required>
+          Total number of available completions
+        </ResponseField>
+
+        <ResponseField name="hasMore" type="boolean" required>
+          Whether more completions are available
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+  </Expandable>
+</ResponseField>
+
+### Example Responses
+
+<ResponseExample>
+```json Tool Completion Response
+{
+  "jsonrpc": "2.0",
+  "id": "completion-123",
+  "result": {
+    "completion": {
+      "values": ["active", "active_trial", "active_premium"],
+      "total": 3,
+      "hasMore": false
+    }
+  }
+}
+```
+
+```json Prompt Completion Response
+{
+  "jsonrpc": "2.0",
+  "id": "completion-124",
+  "result": {
+    "completion": {
+      "values": ["revenue", "revenue_growth", "revenue_per_deal"],
+      "total": 8,
+      "hasMore": true
+    }
+  }
+}
+```
+
+```json Resource Completion Response
+{
+  "jsonrpc": "2.0",
+  "id": "completion-125",
+  "result": {
+    "completion": {
+      "values": ["contacts/123", "contacts/124", "contacts/125"],
+      "total": 150,
+      "hasMore": true
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Common Error Codes
+
+| Code     | Meaning             | Solution                                      |
+| -------- | ------------------- | --------------------------------------------- |
+| `-32602` | Invalid params      | Check reference type and argument format      |
+| `-32001` | Reference not found | Verify tool/prompt/resource exists            |
+| `-32000` | Authentication      | Verify OAuth token and session initialization |
+| `-32603` | Internal error      | Server-side error, check implementation       |
+
+## Usage Patterns
+
+### Health Monitoring
+
+```javascript
+// Regular health checks
+setInterval(async () => {
+  try {
+    await mcpClient.ping();
+    console.log("MCP server healthy");
+  } catch (error) {
+    console.error("MCP server unhealthy:", error);
+  }
+}, 30000); // Every 30 seconds
+```
+
+### Dynamic Logging
+
+```javascript
+// Adjust logging level based on environment
+const logLevel = process.env.NODE_ENV === "production" ? "warning" : "debug";
+await mcpClient.setLogLevel(logLevel);
+```
+
+### Auto-completion UI
+
+```javascript
+// Provide auto-completion in user interfaces
+async function getCompletions(toolName, argName, partialValue) {
+  const response = await mcpClient.complete({
+    ref: { type: "ref/tool", name: toolName },
+    argument: { name: argName, value: partialValue },
+  });
+  return response.result.completion.values;
+}
+```
