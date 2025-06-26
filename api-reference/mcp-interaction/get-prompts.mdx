@@ -1,4 +1,314 @@
 ---
 title: "Get Prompts"
-openapi: "POST /{tenant}/mcp/prompts/list"
+api: "POST /{tenant}/mcp"
+description: "List available prompts from an MCP server using JSON-RPC 2.0 protocol. Prompts are pre-defined templates that can be used with AI systems."
 ---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP prompts. Prompts are reusable templates with parameters that can be retrieved and used with AI systems.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "prompts-list-abc123",
+  "method": "prompts/list",
+  "params": {
+    "cursor": "optional_pagination_cursor",
+    "limit": 50
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "get-prompts-1",
+    "method": "prompts/list",
+    "params": {}
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"prompts/list"`
+</ParamField>
+
+<ParamField path="params" type="object">
+  Optional parameters for the request
+
+  <Expandable title="params properties">
+    <ParamField path="cursor" type="string">
+      Pagination cursor for fetching next page of results
+    </ParamField>
+    
+    <ParamField path="limit" type="integer">
+      Maximum number of prompts to return (typically 1-100)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  The prompts list result
+  <Expandable title="result properties">
+    <ResponseField name="prompts" type="array" required>
+      Array of available prompts
+      <Expandable title="prompt object">
+        <ResponseField name="name" type="string" required>
+          Unique prompt identifier (used for prompts/get)
+        </ResponseField>
+
+        <ResponseField name="description" type="string" required>
+          Human-readable prompt description
+        </ResponseField>
+
+        <ResponseField name="arguments" type="array">
+          Array of prompt arguments/parameters
+          <Expandable title="argument object">
+            <ResponseField name="name" type="string" required>
+              Parameter name
+            </ResponseField>
+
+            <ResponseField name="description" type="string" required>
+              Parameter description
+            </ResponseField>
+
+            <ResponseField name="required" type="boolean">
+              Whether this parameter is required
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="nextCursor" type="string">
+      Cursor for next page (if more results available)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Response
+
+<ResponseExample>
+```json Success Response
+{
+  "jsonrpc": "2.0",
+  "id": "prompts-list-abc123",
+  "result": {
+    "prompts": [
+      {
+        "name": "analyze_sales_performance",
+        "description": "Analyze sales performance data and provide insights",
+        "arguments": [
+          {
+            "name": "time_period",
+            "description": "Time period to analyze (e.g., 'last 30 days', 'Q1 2024')",
+            "required": true
+          },
+          {
+            "name": "sales_rep",
+            "description": "Specific sales representative to focus on (optional)",
+            "required": false
+          },
+          {
+            "name": "metric_focus",
+            "description": "Primary metric to focus analysis on (revenue, deals, conversion)",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "customer_outreach_email",
+        "description": "Generate personalized customer outreach email",
+        "arguments": [
+          {
+            "name": "customer_name",
+            "description": "Name of the customer to contact",
+            "required": true
+          },
+          {
+            "name": "company_name",
+            "description": "Customer's company name",
+            "required": true
+          },
+          {
+            "name": "purpose",
+            "description": "Purpose of the outreach (follow-up, introduction, proposal)",
+            "required": true
+          },
+          {
+            "name": "tone",
+            "description": "Email tone (professional, friendly, urgent)",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "deal_risk_assessment",
+        "description": "Assess risk factors for deals in the pipeline",
+        "arguments": [
+          {
+            "name": "deal_stage",
+            "description": "Current stage of deals to assess",
+            "required": false
+          },
+          {
+            "name": "minimum_value",
+            "description": "Minimum deal value to include in assessment",
+            "required": false
+          }
+        ]
+      },
+      {
+        "name": "market_research_summary",
+        "description": "Generate market research summary for a specific industry",
+        "arguments": [
+          {
+            "name": "industry",
+            "description": "Target industry for research (e.g., 'SaaS', 'Healthcare', 'Manufacturing')",
+            "required": true
+          },
+          {
+            "name": "focus_area",
+            "description": "Specific area to focus on (trends, competitors, opportunities)",
+            "required": false
+          },
+          {
+            "name": "region",
+            "description": "Geographic region for the research",
+            "required": false
+          }
+        ]
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+```json Error Response
+{
+  "jsonrpc": "2.0",
+  "id": "prompts-list-abc123",
+  "error": {
+    "code": -32000,
+    "message": "Session not initialized",
+    "data": {
+      "details": "Call 'initialize' method first to establish MCP session."
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Prompt Categories
+
+Prompts are typically organized by use case:
+
+### Sales & CRM Prompts
+
+- Customer outreach templates
+- Deal analysis prompts
+- Sales performance reviews
+- Lead qualification scripts
+
+### Analytics & Reporting
+
+- Performance analysis prompts
+- Data interpretation templates
+- KPI summary generators
+- Trend analysis prompts
+
+### Communication Templates
+
+- Email templates
+- Meeting summaries
+- Proposal generators
+- Follow-up scripts
+
+### Research & Intelligence
+
+- Market research prompts
+- Competitor analysis templates
+- Industry trend summaries
+- Customer insight generators
+
+## Common Error Codes
+
+| Code     | Meaning          | Solution                                         |
+| -------- | ---------------- | ------------------------------------------------ |
+| `-32602` | Invalid params   | Check request format and parameters              |
+| `-32000` | Server error     | Session not initialized or authentication failed |
+| `-32601` | Method not found | Ensure MCP server supports prompts functionality |
+
+## Prompt Arguments
+
+Prompts can have various types of arguments:
+
+### Required Arguments
+
+Arguments marked with `"required": true` must be provided when using the prompt.
+
+### Optional Arguments
+
+Arguments marked with `"required": false` can be omitted, often with sensible defaults.
+
+### Argument Types
+
+While not explicitly typed in the MCP protocol, common argument patterns include:
+
+- **Text** - Free-form text input
+- **Choice** - Selection from predefined options
+- **Date/Time** - Temporal specifications
+- **Numeric** - Quantities, percentages, or measurements
+
+## Usage Notes
+
+- **Session Required**: This method requires an active MCP session (initialize first)
+- **Pagination**: Use `cursor` and `limit` for large prompt lists
+- **Prompt Retrieval**: Use the returned prompt `name` values with the `prompts/get` method
+- **Dynamic Content**: Prompts may generate different content based on current data context
+
+## Next Steps
+
+After listing prompts, you can:
+
+1. **Retrieve prompt content** using the `prompts/get` method with the prompt name and arguments
+2. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
+3. **Access resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
+4. **List tools** using [List Tools](/api-reference/mcp-interaction/list-tools)

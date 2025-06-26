@@ -1,4 +1,316 @@
 ---
 title: "Call Tool"
-openapi: "POST /{tenant}/mcp/tools/call"
+api: "POST /{tenant}/mcp"
+description: "Execute a specific tool using JSON-RPC 2.0 protocol. This method calls a tool by name with provided arguments and returns the execution result."
 ---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP to execute MCP tools. The tool name and arguments are passed in the JSON-RPC request parameters.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.tools.execute` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+4. **Tool Discovery**: Use [List Tools](/api-reference/mcp-interaction/list-tools) to discover available tools and their parameters
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-abc123",
+  "method": "tools/call",
+  "params": {
+    "name": "get_contacts",
+    "arguments": {
+      "limit": 10,
+      "filter": "john@example.com"
+    }
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "call-get-contacts-1",
+    "method": "tools/call",
+    "params": {
+      "name": "get_contacts",
+      "arguments": {
+        "limit": 5
+      }
+    }
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"tools/call"`
+</ParamField>
+
+<ParamField path="params" type="object" required>
+  Tool execution parameters
+
+  <Expandable title="params properties">
+    <ParamField path="name" type="string" required>
+      Name of the tool to execute (from tools/list response)
+    </ParamField>
+    
+    <ParamField path="arguments" type="object" required>
+      Tool-specific arguments (must match the tool's inputSchema)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object">
+  Tool execution result (present on success)
+  <Expandable title="result properties">
+    <ResponseField name="content" type="array" required>
+      Array of content items returned by the tool
+      <Expandable title="content item">
+        <ResponseField name="type" type="string" required>
+          Content type: `"text"`, `"image"`, or `"resource"`
+        </ResponseField>
+
+        <ResponseField name="text" type="string">
+          Text content (when type is "text")
+        </ResponseField>
+
+        <ResponseField name="data" type="string">
+          Base64-encoded data (when type is "image")
+        </ResponseField>
+
+        <ResponseField name="mimeType" type="string">
+          MIME type for data content
+        </ResponseField>
+
+        <ResponseField name="uri" type="string">
+          Resource URI (when type is "resource")
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="isError" type="boolean">
+      Whether the tool execution resulted in an error
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  Error details (present on failure)
+  <Expandable title="error properties">
+    <ResponseField name="code" type="integer" required>
+      JSON-RPC error code
+    </ResponseField>
+
+    <ResponseField name="message" type="string" required>
+      Error message
+    </ResponseField>
+
+    <ResponseField name="data" type="object">
+      Additional error details
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Responses
+
+<ResponseExample>
+```json Success Response
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-abc123",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Found 3 contacts matching your criteria:\n\n1. John Doe (john@example.com)\n2. Jane Smith (jane@example.com)\n3. John Johnson (jj@example.com)"
+      }
+    ],
+    "isError": false
+  }
+}
+```
+
+```json Success with Structured Data
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-abc123",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Contact data retrieved successfully"
+      },
+      {
+        "type": "resource",
+        "uri": "crm://contacts/123",
+        "mimeType": "application/json"
+      }
+    ],
+    "isError": false
+  }
+}
+```
+
+```json Tool Execution Error
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-abc123",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Error: Invalid API key. Please check your authentication settings."
+      }
+    ],
+    "isError": true
+  }
+}
+```
+
+```json JSON-RPC Error
+{
+  "jsonrpc": "2.0",
+  "id": "tool-call-abc123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "Tool 'nonexistent_tool' not found. Use tools/list to see available tools."
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Common Error Codes
+
+| Code     | Meaning          | Solution                                         |
+| -------- | ---------------- | ------------------------------------------------ |
+| `-32602` | Invalid params   | Check tool name and arguments format             |
+| `-32000` | Server error     | Session not initialized or authentication failed |
+| `-32601` | Method not found | Ensure MCP server supports tools functionality   |
+| `-32603` | Internal error   | Tool execution failed on server side             |
+
+## Tool Argument Validation
+
+Tools validate arguments against their `inputSchema` (from tools/list):
+
+<CodeGroup>
+```json Tool Schema Example
+{
+  "name": "create_deal",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "title": {"type": "string"},
+      "value": {"type": "number", "minimum": 0},
+      "person_id": {"type": "integer"}
+    },
+    "required": ["title", "value"]
+  }
+}
+```
+
+```json Valid Arguments
+{
+  "name": "create_deal",
+  "arguments": {
+    "title": "New Partnership Deal",
+    "value": 50000,
+    "person_id": 123
+  }
+}
+```
+
+```json Invalid Arguments (Missing Required)
+{
+  "name": "create_deal",
+  "arguments": {
+    "title": "Incomplete Deal"
+    // Missing required "value" field
+  }
+}
+```
+
+</CodeGroup>
+
+## Content Types
+
+Tools can return different content types:
+
+### Text Content
+
+```json
+{
+  "type": "text",
+  "text": "Operation completed successfully"
+}
+```
+
+### Image Content
+
+```json
+{
+  "type": "image",
+  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+  "mimeType": "image/png"
+}
+```
+
+### Resource Reference
+
+```json
+{
+  "type": "resource",
+  "uri": "crm://contacts/123",
+  "mimeType": "application/json"
+}
+```
+
+## Usage Notes
+
+- **Error Handling**: Tools can succeed but return `isError: true` for business logic errors
+- **Async Operations**: Tool calls are synchronous - they complete before returning
+- **Rate Limiting**: Some tools may have rate limits based on the underlying SaaS API
+- **Permissions**: Tool execution respects the authenticated user's permissions in the target system
+
+## Next Steps
+
+After calling tools, you can:
+
+1. **Process results** and extract relevant information
+2. **Call additional tools** for follow-up operations
+3. **Access resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
+4. **Use prompts** with [Get Prompts](/api-reference/mcp-interaction/get-prompts)

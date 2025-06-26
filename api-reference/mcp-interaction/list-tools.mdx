@@ -1,4 +1,218 @@
 ---
 title: "List Tools"
-openapi: "POST /{tenant}/mcp/tools/list"
+api: "POST /{tenant}/mcp"
+description: "List available tools from an MCP server using JSON-RPC 2.0 protocol. This method returns all tools that can be executed via the tools/call method."
 ---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP, not REST. All MCP communication goes through a single tenant endpoint using structured JSON-RPC requests and responses.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "tools-list-abc123",
+  "method": "tools/list",
+  "params": {
+    "cursor": "optional_pagination_cursor",
+    "limit": 50
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "tools-list-request-1",
+    "method": "tools/list",
+    "params": {}
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"tools/list"`
+</ParamField>
+
+<ParamField path="params" type="object">
+  Optional parameters for the request
+
+  <Expandable title="params properties">
+    <ParamField path="cursor" type="string">
+      Pagination cursor for fetching next page of results
+    </ParamField>
+    
+    <ParamField path="limit" type="integer">
+      Maximum number of tools to return (typically 1-100)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  The tools list result
+  <Expandable title="result properties">
+    <ResponseField name="tools" type="array" required>
+      Array of available tools
+      <Expandable title="tool object">
+        <ResponseField name="name" type="string" required>
+          Tool identifier (used in tools/call)
+        </ResponseField>
+
+        <ResponseField name="description" type="string" required>
+          Human-readable tool description
+        </ResponseField>
+
+        <ResponseField name="inputSchema" type="object">
+          JSON Schema defining tool parameters
+          <Expandable title="inputSchema properties">
+            <ResponseField name="type" type="string">
+              Usually `"object"`
+            </ResponseField>
+
+            <ResponseField name="properties" type="object">
+              Parameter definitions
+            </ResponseField>
+
+            <ResponseField name="required" type="array">
+              List of required parameter names
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="nextCursor" type="string">
+      Cursor for next page (if more results available)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Response
+
+<ResponseExample>
+```json Success Response
+{
+  "jsonrpc": "2.0",
+  "id": "tools-list-abc123",
+  "result": {
+    "tools": [
+      {
+        "name": "get_contacts",
+        "description": "Retrieve contacts from the CRM system",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of contacts to return",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "filter": {
+              "type": "string",
+              "description": "Filter contacts by name or email"
+            }
+          },
+          "required": ["limit"]
+        }
+      },
+      {
+        "name": "create_deal",
+        "description": "Create a new deal in the CRM",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Deal title"
+            },
+            "value": {
+              "type": "number",
+              "description": "Deal value in currency units"
+            },
+            "person_id": {
+              "type": "integer",
+              "description": "ID of the person associated with the deal"
+            }
+          },
+          "required": ["title", "value"]
+        }
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+```json Error Response
+{
+  "jsonrpc": "2.0",
+  "id": "tools-list-abc123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "Session not initialized. Call 'initialize' method first."
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Common Error Codes
+
+| Code     | Meaning          | Solution                                         |
+| -------- | ---------------- | ------------------------------------------------ |
+| `-32602` | Invalid params   | Check request format and parameters              |
+| `-32000` | Server error     | Session not initialized or authentication failed |
+| `-32601` | Method not found | Ensure MCP server supports tools functionality   |
+
+## Usage Notes
+
+- **Session Required**: This method requires an active MCP session (initialize first)
+- **Pagination**: Use `cursor` and `limit` for large tool lists
+- **Tool Execution**: Use the returned tool `name` values with the `tools/call` method
+- **Schema Validation**: The `inputSchema` defines required parameters for `tools/call`
+
+## Next Steps
+
+After listing tools, you can:
+
+1. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
+2. **List resources** using [Get Resources](/api-reference/mcp-interaction/get-resources)
+3. **Get prompts** using [Get Prompts](/api-reference/mcp-interaction/get-prompts)

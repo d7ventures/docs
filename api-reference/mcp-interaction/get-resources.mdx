@@ -1,4 +1,275 @@
 ---
 title: "Get Resources"
-openapi: "POST /{tenant}/mcp/resources/list"
+api: "POST /{tenant}/mcp"
+description: "List available resources from an MCP server using JSON-RPC 2.0 protocol. Resources represent data or content that can be read or referenced."
 ---
+
+## Protocol Overview
+
+This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP resources. Resources are data objects, files, or content that the MCP server can provide access to.
+
+## Prerequisites
+
+1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+2. **Authentication**: Valid OAuth token or PAT with `mcp.resources.read` scope
+3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+
+## Request Format
+
+<CodeGroup>
+```json JSON-RPC Request
+{
+  "jsonrpc": "2.0",
+  "id": "resources-list-abc123",
+  "method": "resources/list",
+  "params": {
+    "cursor": "optional_pagination_cursor",
+    "limit": 50
+  }
+}
+```
+
+```bash cURL Example
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: session_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "get-resources-1",
+    "method": "resources/list",
+    "params": {}
+  }'
+```
+
+</CodeGroup>
+
+## Request Parameters
+
+<ParamField path="jsonrpc" type="string" required>
+  Must be `"2.0"` (JSON-RPC version)
+</ParamField>
+
+<ParamField path="id" type="string" required>
+  Unique request identifier (will be returned in response)
+</ParamField>
+
+<ParamField path="method" type="string" required>
+  Must be `"resources/list"`
+</ParamField>
+
+<ParamField path="params" type="object">
+  Optional parameters for the request
+
+  <Expandable title="params properties">
+    <ParamField path="cursor" type="string">
+      Pagination cursor for fetching next page of results
+    </ParamField>
+    
+    <ParamField path="limit" type="integer">
+      Maximum number of resources to return (typically 1-100)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response Format
+
+<ResponseField name="jsonrpc" type="string" required>
+  Always `"2.0"`
+</ResponseField>
+
+<ResponseField name="id" type="string" required>
+  Matches the request ID
+</ResponseField>
+
+<ResponseField name="result" type="object" required>
+  The resources list result
+  <Expandable title="result properties">
+    <ResponseField name="resources" type="array" required>
+      Array of available resources
+      <Expandable title="resource object">
+        <ResponseField name="uri" type="string" required>
+          Unique resource identifier (used for resources/read)
+        </ResponseField>
+
+        <ResponseField name="name" type="string" required>
+          Human-readable resource name
+        </ResponseField>
+
+        <ResponseField name="description" type="string">
+          Description of the resource content
+        </ResponseField>
+
+        <ResponseField name="mimeType" type="string">
+          MIME type of the resource content
+        </ResponseField>
+
+        <ResponseField name="annotations" type="object">
+          Additional metadata about the resource
+          <Expandable title="annotations properties">
+            <ResponseField name="audience" type="array">
+              Intended audience for this resource
+            </ResponseField>
+
+            <ResponseField name="priority" type="number">
+              Resource priority (0.0 to 1.0)
+            </ResponseField>
+          </Expandable>
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+
+    <ResponseField name="nextCursor" type="string">
+      Cursor for next page (if more results available)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Response
+
+<ResponseExample>
+```json Success Response
+{
+  "jsonrpc": "2.0",
+  "id": "resources-list-abc123",
+  "result": {
+    "resources": [
+      {
+        "uri": "crm://contacts/database",
+        "name": "Contacts Database",
+        "description": "Complete contacts database with all customer information",
+        "mimeType": "application/json",
+        "annotations": {
+          "audience": ["human", "llm"],
+          "priority": 0.8
+        }
+      },
+      {
+        "uri": "crm://deals/active",
+        "name": "Active Deals",
+        "description": "Currently active deals in the sales pipeline",
+        "mimeType": "application/json",
+        "annotations": {
+          "audience": ["llm"],
+          "priority": 0.9
+        }
+      },
+      {
+        "uri": "file://reports/monthly_sales.pdf",
+        "name": "Monthly Sales Report",
+        "description": "Detailed sales performance report for the current month",
+        "mimeType": "application/pdf",
+        "annotations": {
+          "audience": ["human"],
+          "priority": 0.6
+        }
+      },
+      {
+        "uri": "api://analytics/dashboard",
+        "name": "Analytics Dashboard Data",
+        "description": "Real-time analytics and KPI data",
+        "mimeType": "application/json",
+        "annotations": {
+          "audience": ["llm"],
+          "priority": 0.7
+        }
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+```json Error Response
+{
+  "jsonrpc": "2.0",
+  "id": "resources-list-abc123",
+  "error": {
+    "code": -32000,
+    "message": "Session not initialized",
+    "data": {
+      "details": "Call 'initialize' method first to establish MCP session."
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Resource URI Schemes
+
+Resources use different URI schemes to indicate their type and location:
+
+### CRM Resources
+
+```
+crm://contacts/123          # Specific contact
+crm://deals/active          # Active deals collection
+crm://companies/tech        # Companies in tech sector
+```
+
+### File Resources
+
+```
+file://documents/contract.pdf    # PDF document
+file://images/logo.png          # Image file
+file://data/export.csv          # CSV data file
+```
+
+### API Resources
+
+```
+api://analytics/dashboard       # Live API data
+api://reports/sales            # Generated reports
+api://metrics/performance      # Performance metrics
+```
+
+### Database Resources
+
+```
+db://tables/customers          # Database table
+db://views/sales_summary       # Database view
+db://queries/top_performers    # Pre-defined query
+```
+
+## Common Error Codes
+
+| Code     | Meaning          | Solution                                           |
+| -------- | ---------------- | -------------------------------------------------- |
+| `-32602` | Invalid params   | Check request format and parameters                |
+| `-32000` | Server error     | Session not initialized or authentication failed   |
+| `-32601` | Method not found | Ensure MCP server supports resources functionality |
+
+## Resource Annotations
+
+Resources include annotations to help clients understand their purpose:
+
+### Audience
+
+- `"human"` - Intended for human consumption
+- `"llm"` - Optimized for AI/LLM processing
+- `["human", "llm"]` - Suitable for both
+
+### Priority
+
+- `1.0` - Critical/primary resource
+- `0.8` - High importance
+- `0.5` - Medium importance
+- `0.2` - Low importance
+- `0.0` - Background/optional
+
+## Usage Notes
+
+- **Session Required**: This method requires an active MCP session (initialize first)
+- **Pagination**: Use `cursor` and `limit` for large resource lists
+- **Resource Access**: Use the returned resource `uri` values with the `resources/read` method
+- **Filtering**: Some servers may support filtering parameters (check server documentation)
+
+## Next Steps
+
+After listing resources, you can:
+
+1. **Read resource content** using the `resources/read` method with the resource URI
+2. **Subscribe to changes** using `resources/subscribe` (if supported)
+3. **Execute tools** using [Call Tool](/api-reference/mcp-interaction/call-tool)
+4. **Get prompts** using [Get Prompts](/api-reference/mcp-interaction/get-prompts)
