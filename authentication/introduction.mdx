@@ -28,6 +28,7 @@ The Kambrium platform authentication operates across three distinct layers:
   </Card>
 
 {" "}
+
 <Card title="MCP Server Runtime" icon="server">
   **Purpose:** Protocol-compliant MCP server access **Authentication:** OAuth
   2.1 Client Credentials + PAT tokens **Context:** `mcp_server_access` vs
@@ -146,15 +147,42 @@ Direct authentication with third-party services using either API keys or OAuth f
 Understanding how authentication flows between layers:
 
 <Tip>
-  ```mermaid graph TD subgraph "User/Application" U[User/Application] end
-  subgraph "Layer 1: Management API" MA[Management API] MA_AUTH[OAuth 2.1 /
-  PATs] end subgraph "Layer 2: MCP Servers" MCP[MCP Server] MCP_AUTH[OAuth
-  Tokens] end subgraph "Layer 3: SaaS Tools" SAAS[SaaS APIs] SAAS_AUTH[API Keys
-  / OAuth] end U -->|Authenticate| MA_AUTH MA_AUTH --> MA MA -->|Provides
-  Credentials| MCP_AUTH MCP_AUTH --> MCP MCP -->|Connects Using| SAAS_AUTH
-  SAAS_AUTH --> SAAS style MA_AUTH fill:#8470FF style MCP_AUTH fill:#8470FF
-  style SAAS_AUTH fill:#8470FF ```
+  **Three-Layer Authentication:** Management API → MCP Servers → SaaS Tools,
+  each with appropriate authentication methods.
 </Tip>
+
+```mermaid
+graph TD
+    subgraph "User/Application"
+        U[User/Application]
+    end
+
+    subgraph "Layer 1: Management API"
+        MA[Management API]
+        MA_AUTH[OAuth 2.1 / PATs]
+    end
+
+    subgraph "Layer 2: MCP Servers"
+        MCP[MCP Server]
+        MCP_AUTH[OAuth Tokens]
+    end
+
+    subgraph "Layer 3: SaaS Tools"
+        SAAS[SaaS APIs]
+        SAAS_AUTH[API Keys / OAuth]
+    end
+
+    U -->|Authenticate| MA_AUTH
+    MA_AUTH --> MA
+    MA -->|Provides Credentials| MCP_AUTH
+    MCP_AUTH --> MCP
+    MCP -->|Connects Using| SAAS_AUTH
+    SAAS_AUTH --> SAAS
+
+    style MA_AUTH fill:#8470FF
+    style MCP_AUTH fill:#8470FF
+    style SAAS_AUTH fill:#8470FF
+```
 
 ---
 
@@ -278,6 +306,7 @@ Understanding how authentication flows between layers:
   </Accordion>
 
 {" "}
+
 <Accordion title="403 Forbidden" icon="lock">
   **Insufficient Permissions** **Common Causes:** - Token lacks required scopes
   - Operation not permitted for user - Resource access restrictions
@@ -306,6 +335,7 @@ Understanding how authentication flows between layers:
   </Accordion>
 
 {" "}
+
 <Accordion title="Token Lifecycle" icon="clock">
   **Lifecycle Management:** - Monitor token expiration - Implement automatic
   refresh - Handle refresh failures gracefully - Revoke unused tokens promptly
@@ -328,6 +358,7 @@ Understanding how authentication flows between layers:
   </Accordion>
 
 {" "}
+
 <Accordion title="Security Monitoring" icon="eye">
   **Security Observability:** - Monitor authentication failures - Track unusual
   access patterns - Implement alerting for security events - Regular security
@@ -394,11 +425,13 @@ Understanding how authentication flows between layers:
   </Card>
 
 {" "}
+
 <Card title="API Reference" href="/api-reference/introduction" icon="book">
   Explore detailed API documentation and examples
 </Card>
 
 {" "}
+
 <Card title="Management API" href="/authentication/management-api" icon="cog">
   Deep dive into Management API authentication
 </Card>
