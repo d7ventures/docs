@@ -94,19 +94,9 @@
   },
   "anchors": [
     {
-      "name": "Dashboard",
-      "url": "https://app.kambrium.com",
-      "icon": "chart-line"
-    },
-    {
       "name": "Community",
       "url": "https://discord.gg/kambrium",
       "icon": "discord"
-    },
-    {
-      "name": "Support",
-      "url": "mailto:support@kambrium.com",
-      "icon": "envelope"
     }
   ],
   "logo": {
@@ -114,17 +104,7 @@
     "dark": "/logo/kambrium_white.png"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@kambrium.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://app.kambrium.com"
-    }
+    "links": []
   },
   "footer": {
     "socials": {
