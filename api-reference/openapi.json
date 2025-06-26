@@ -290,7 +290,7 @@
     "/api/v1/mcp-servers/{server_id}/tools": {
       "get": {
         "summary": "Get MCP Server Tools",
-        "description": "Retrieve all available tools for a specific MCP server connection in MCP format",
+        "description": "Retrieve all available tools for a specific MCP server connection in MCP format with automatic pagination for large tool collections",
         "parameters": [
           {
             "name": "server_id",
@@ -326,7 +326,7 @@
         ],
         "responses": {
           "200": {
-            "description": "MCP server tools",
+            "description": "MCP server tools with pagination",
             "content": {
               "application/json": {
                 "schema": {
@@ -517,7 +517,12 @@
             "type": "string",
             "example": "Found 2 available MCP server integrations"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "AvailableServer": {
         "type": "object",
@@ -534,7 +539,12 @@
             "type": "integer",
             "example": 277
           }
-        }
+        },
+        "required": [
+          "name",
+          "description",
+          "number_of_tools"
+        ]
       },
       "ConnectionsResponse": {
         "type": "object",
@@ -553,7 +563,12 @@
             "type": "string",
             "example": "Found 1 MCP server connections"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "Connection": {
         "type": "object",
@@ -574,9 +589,32 @@
             "type": "string",
             "example": "CRM integration for managing deals, contacts, and activities"
           },
+          "company_name": {
+            "type": "string",
+            "example": "Acme Corp"
+          },
           "api_key_verification_status": {
             "type": "string",
+            "enum": [
+              "pending",
+              "verified",
+              "failed"
+            ],
             "example": "verified"
+          },
+          "oauth2_client_id": {
+            "type": "string",
+            "example": "3qonqss9be528iitnmsd58tmac"
+          },
+          "oauth2_scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "default-m2m-resource-server-z958ha/mcp.read",
+              "default-m2m-resource-server-z958ha/mcp.write"
+            ]
           },
           "mcp_server_access_type_name": {
             "type": "string",
@@ -590,6 +628,10 @@
             "type": "boolean",
             "example": true
           },
+          "agent_permission_type_name": {
+            "type": "string",
+            "example": "Full Access"
+          },
           "disabled_tools": {
             "type": "array",
             "items": {
@@ -597,12 +639,70 @@
             },
             "example": []
           },
+          "last_used": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-20T14:22:00Z"
+          },
+          "usage_count": {
+            "type": "integer",
+            "example": 45
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
             "example": "2024-01-15T10:30:00Z"
+          },
+          "auth_method": {
+            "type": "string",
+            "enum": [
+              "api_key",
+              "oauth"
+            ],
+            "example": "api_key"
+          },
+          "authorization_url": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "oauth_status": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "pending",
+              "active",
+              "failed"
+            ],
+            "example": null
+          },
+          "oauth2_credentials": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "client_id": {
+                "type": "string"
+              },
+              "client_secret": {
+                "type": "string"
+              }
+            },
+            "example": null
           }
-        }
+        },
+        "required": [
+          "id",
+          "mcp_server_id",
+          "mcp_server_name",
+          "api_key_verification_status",
+          "oauth2_client_id",
+          "oauth2_scopes",
+          "mcp_server_access_type_name",
+          "mcp_server_access_status_name",
+          "agent_enabled",
+          "disabled_tools",
+          "created_at"
+        ]
       },
       "CreateConnectionRequest": {
         "type": "object",
@@ -614,7 +714,7 @@
           "mcp_server": {
             "type": "string",
             "example": "pipedrive",
-            "description": "MCP server integration name"
+            "description": "MCP server integration name (e.g., 'pipedrive', 'salesforce')"
           },
           "access_type": {
             "type": "string",
@@ -634,12 +734,12 @@
             ],
             "default": "api_key",
             "example": "api_key",
-            "description": "SaaS authentication method"
+            "description": "SaaS authentication method (defaults to 'api_key' for backward compatibility)"
           },
           "api_key": {
             "type": "string",
             "example": "your-pipedrive-api-key",
-            "description": "Required when auth_method is api_key"
+            "description": "Required when auth_method is 'api_key'"
           },
           "agent_enabled": {
             "type": "boolean",
@@ -647,13 +747,24 @@
             "example": true,
             "description": "Enable agent access to this connection"
           },
+          "mcp_server_authentication_method": {
+            "type": "string",
+            "enum": [
+              "oauth",
+              "bearer_token"
+            ],
+            "default": "oauth",
+            "example": "oauth",
+            "description": "MCP server access method"
+          },
           "disabled_tools": {
             "type": "array",
             "items": {
               "type": "integer"
             },
+            "nullable": true,
             "example": null,
-            "description": "Tool IDs to disable (only when access_type is individual)"
+            "description": "Tool IDs to disable (only when access_type is 'individual')"
           }
         }
       },
@@ -662,11 +773,13 @@
         "properties": {
           "api_key": {
             "type": "string",
-            "example": "updated-api-key"
+            "example": "updated-api-key",
+            "description": "Updated API key for the connection"
           },
           "agent_enabled": {
             "type": "boolean",
-            "example": false
+            "example": false,
+            "description": "Enable or disable agent access"
           },
           "access_type": {
             "type": "string",
@@ -675,7 +788,8 @@
               "write",
               "individual"
             ],
-            "example": "read"
+            "example": "read",
+            "description": "Updated access level"
           },
           "disabled_tools": {
             "type": "array",
@@ -686,7 +800,8 @@
               1,
               2,
               3
-            ]
+            ],
+            "description": "Tool IDs to disable (for individual access)"
           }
         }
       },
@@ -704,7 +819,12 @@
             "type": "string",
             "example": "MCP server connection created successfully"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "ConnectionDetailResponse": {
         "type": "object",
@@ -720,7 +840,12 @@
             "type": "string",
             "example": "MCP server details retrieved successfully"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "DeleteResponse": {
         "type": "object",
@@ -737,7 +862,12 @@
             "type": "string",
             "example": "MCP server connection deleted successfully"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "ToolsResponse": {
         "type": "object",
@@ -753,7 +883,12 @@
             "type": "string",
             "example": "Found 277 tools for MCP server connection (showing 50 tools, page 1)"
           }
-        }
+        },
+        "required": [
+          "success",
+          "data",
+          "message"
+        ]
       },
       "ToolsData": {
         "type": "object",
@@ -762,43 +897,60 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Tool"
-            }
+            },
+            "description": "Array of MCP-compliant tools"
           },
           "total_count": {
             "type": "integer",
-            "example": 277
+            "example": 277,
+            "description": "Total number of tools available"
           },
           "mcp_server_id": {
             "type": "integer",
-            "example": 1
+            "example": 1,
+            "description": "ID of the MCP server"
           },
           "limit": {
             "type": "integer",
-            "example": 50
+            "example": 50,
+            "description": "Maximum tools returned in this response"
           },
           "offset": {
             "type": "integer",
-            "example": 0
+            "example": 0,
+            "description": "Number of tools skipped"
           },
           "has_more": {
             "type": "boolean",
-            "example": true
+            "example": true,
+            "description": "Whether more tools are available"
           }
-        }
+        },
+        "required": [
+          "tools",
+          "total_count",
+          "mcp_server_id",
+          "limit",
+          "offset",
+          "has_more"
+        ]
       },
       "Tool": {
         "type": "object",
         "properties": {
           "name": {
             "type": "string",
-            "example": "getPersons"
+            "example": "getPersons",
+            "description": "Tool name (MCP compliant)"
           },
           "description": {
             "type": "string",
-            "example": "Returns all persons from the CRM system"
+            "example": "Returns all persons from the CRM system",
+            "description": "Tool description (MCP compliant)"
           },
           "inputSchema": {
             "type": "object",
+            "description": "JSON Schema for tool input (MCP compliant)",
             "example": {
               "type": "object",
               "title": "GetPersons Input",
@@ -816,9 +968,16 @@
           },
           "annotations": {
             "type": "object",
+            "description": "Additional metadata (MCP compliant)",
             "example": {}
           }
-        }
+        },
+        "required": [
+          "name",
+          "description",
+          "inputSchema",
+          "annotations"
+        ]
       },
       "Error": {
         "type": "object",
@@ -842,9 +1001,17 @@
                 "type": "object",
                 "example": {}
               }
-            }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
           }
-        }
+        },
+        "required": [
+          "success",
+          "error"
+        ]
       },
       "Plant": {
         "required": [
