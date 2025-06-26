@@ -5,47 +5,44 @@ description: "Understand Kambrium's three-layer authentication architecture"
 
 # Authentication Overview
 
-Kambrium uses a three-layer authentication architecture to secure access from users to SaaS tools through our platform.
+Kambrium uses a three-layer authentication architecture to secure access from users to SaaS tools through our MCP platform.
 
 ## Three Authentication Layers
 
 ### Layer 1: Management API
 
-**Purpose:** Control and configure MCP servers and their integrations  
-**Users:** Developers and administrators  
-**Methods:** OAuth 2.1 with Personal Access Tokens (PATs)
+**Purpose:** Administrative control over MCP server connections and lifecycle  
+**Authentication:** OAuth 2.1 Client Credentials OR Personal Access Tokens (PATs)
 
 ### Layer 2: MCP Server Runtime
 
-**Purpose:** Execute MCP protocol operations and manage tool access  
-**Users:** MCP clients and applications  
-**Methods:** JWT tokens with scoped permissions
+**Purpose:** Execute MCP protocol operations and access tools/resources  
+**Authentication:** OAuth 2.1 Client Credentials OR Personal Access Tokens (PATs)
 
 ### Layer 3: SaaS Tool Connections
 
-**Purpose:** Connect to external APIs (Pipedrive, Gmail, etc.)  
-**Users:** End users through MCP servers  
-**Methods:** API keys or OAuth flows
+**Purpose:** Connect MCP servers to external APIs (Pipedrive, Gmail, etc.)  
+**Authentication:** API keys OR SaaS provider OAuth flows
 
 ## Authentication Methods
 
-### OAuth 2.1
+### OAuth 2.1 Client Credentials
 
-Modern OAuth implementation with enhanced security features:
+Standard OAuth flow for production applications:
 
-- **Client credentials flow** for server-to-server authentication
-- **PKCE support** for enhanced security
-- **JWT tokens** with structured claims and scopes
-- **Automatic token refresh** for seamless operation
+- **Client credentials** (client_id/client_secret) obtained from web UI
+- **Short-lived tokens** with automatic expiration
+- **Token refresh** capability for continuous access
+- **Recommended** for production server-to-server applications
 
 ### Personal Access Tokens (PATs)
 
-Long-lived tokens for programmatic access:
+Long-lived tokens for development and scripting:
 
-- **Scoped permissions** for granular access control
-- **Context-specific** tokens for different use cases
-- **Secure storage** with encrypted payloads
-- **Easy revocation** for security management
+- **Non-expiring JWT tokens** generated in web UI
+- **Copy-paste experience** like traditional API keys
+- **No Cognito involvement** - generated directly by platform
+- **Perfect for** development, scripting, CI/CD pipelines
 
 ## Authentication Flow
 
@@ -56,20 +53,17 @@ sequenceDiagram
     participant MCP Server
     participant SaaS Tool
 
-    User->>Management API: Authenticate (OAuth/PAT)
-    Management API->>User: Return access token
-    User->>MCP Server: Request with token
-    MCP Server->>Management API: Validate token
-    Management API->>MCP Server: Token valid + permissions
-    MCP Server->>SaaS Tool: Connect with stored credentials
-    SaaS Tool->>MCP Server: Return data
-    MCP Server->>User: Return processed data
+    User->>Management API: OAuth/PAT token
+    Management API->>User: Access granted
+    User->>MCP Server: OAuth/PAT token
+    MCP Server->>SaaS Tool: API key/OAuth token
+    SaaS Tool->>MCP Server: Data response
+    MCP Server->>User: MCP response
 ```
 
-## Security Features
+## Key Principles
 
-- **JWT token validation** with signature verification
-- **Scope-based authorization** for fine-grained access control
-- **Token expiration** and automatic refresh
-- **Secure credential storage** for SaaS integrations
-- **Request validation** and rate limiting
+- **Same methods for both layers:** OAuth 2.1 and PATs work identically for Management API and MCP Server access
+- **Token choice:** OAuth for production, PATs for development
+- **SaaS integration:** Users provide API keys or complete OAuth flows with SaaS providers
+- **MCP compliance:** All MCP server access follows MCP protocol standards

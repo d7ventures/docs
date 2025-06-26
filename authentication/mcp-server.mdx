@@ -1,15 +1,39 @@
 ---
 title: "MCP Server Runtime Authentication"
-description: "Authentication for MCP protocol operations and tool execution"
+description: "OAuth 2.1 and PAT authentication for MCP protocol operations"
 ---
 
 # MCP Server Runtime Authentication
 
-MCP servers require authentication for protocol operations, tool execution, and resource access using JWT tokens with MCP-specific scopes.
+MCP servers require authentication for protocol operations, tool execution, and resource access using the same two methods as the Management API.
 
-## Authentication Context
+## OAuth 2.1 Client Credentials
 
-MCP server authentication uses tokens with `"context": "mcp_server_access"` to distinguish from Management API operations:
+Standard OAuth flow for production MCP clients:
+
+```bash
+curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -u "client_id:client_secret" \
+  -d "grant_type=client_credentials&scope=mcp.read+mcp.write+mcp.tools.execute"
+```
+
+**Response:**
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "mcp.read mcp.write mcp.tools.execute"
+}
+```
+
+## Personal Access Tokens (PATs)
+
+Long-lived tokens for MCP server access:
+
+**Token Structure:**
 
 ```json
 {
@@ -18,19 +42,17 @@ MCP server authentication uses tokens with `"context": "mcp_server_access"` to d
   "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
   "scopes": ["mcp.read", "mcp.write", "mcp.tools.execute"],
   "context": "mcp_server_access",
-  "mcp_server_id": 1
+  "mcp_server_id": "server_123"
 }
 ```
 
-## Required Scopes
+## Available Scopes
 
-| Scope                | Permissions                | MCP Operations                    |
-| -------------------- | -------------------------- | --------------------------------- |
-| `mcp.read`           | Read resources and prompts | `resources/list`, `prompts/list`  |
-| `mcp.write`          | Create/modify data         | Resource updates, data operations |
-| `mcp.tools.execute`  | Execute tools              | `tools/call` operations           |
-| `mcp.resources.read` | Access resources           | Resource content access           |
-| `mcp.prompts.read`   | Access prompts             | Prompt content and templates      |
+- **mcp.read** - Read resources and server information
+- **mcp.write** - Execute write operations on tools
+- **mcp.tools.execute** - Execute MCP tools and functions
+- **mcp.resources.read** - Access resource content
+- **mcp.prompts.read** - Access available prompts
 
 ## MCP Protocol Authentication
 
@@ -39,138 +61,45 @@ MCP server authentication uses tokens with `"context": "mcp_server_access"` to d
 ```json
 {
   "jsonrpc": "2.0",
+  "id": 1,
   "method": "initialize",
   "params": {
     "protocolVersion": "2024-11-05",
     "capabilities": {
       "tools": {},
       "resources": {}
-    },
-    "clientInfo": {
-      "name": "kambrium-mcp-client",
-      "version": "1.0.0"
     }
-  },
-  "id": 1
+  }
 }
 ```
 
-### Authentication Header
+### List Available Tools
 
-All MCP requests include JWT authentication:
-
+```bash
+curl -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' \
+  https://mcp.kambrium.com/server_123
 ```
-Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-```
 
-### Tool Execution
+### Execute Tool
 
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "tools/call",
-  "params": {
-    "name": "get_contact",
-    "arguments": {
-      "contact_id": "123"
+```bash
+curl -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "create_deal",
+      "arguments": {"title": "New Deal", "value": 1000}
     }
-  },
-  "id": 2
-}
+  }' \
+  https://mcp.kambrium.com/server_123
 ```
 
-## Client ID Validation
+## Server-Specific Access
 
-MCP servers extract the `client_id` from JWT tokens for user identification and access control:
-
-```python
-def validate_mcp_token(token: str) -> dict:
-    payload = jwt.decode(token, verify=True)
-
-    # Validate context
-    if payload.get("context") != "mcp_server_access":
-        raise AuthenticationError("Invalid token context")
-
-    # Validate scopes
-    required_scopes = ["mcp.read", "mcp.tools.execute"]
-    if not all(scope in payload.get("scopes", []) for scope in required_scopes):
-        raise AuthenticationError("Insufficient scopes")
-
-    return payload
-```
-
-## MCP Server Access Control
-
-### Server-Specific Tokens
-
-Tokens can be scoped to specific MCP servers using `mcp_server_id`:
-
-```json
-{
-  "mcp_server_id": 1,
-  "context": "mcp_server_access",
-  "scopes": ["mcp.tools.execute"]
-}
-```
-
-### Multi-Server Access
-
-Tokens without `mcp_server_id` provide access to all authorized servers:
-
-```json
-{
-  "context": "mcp_server_access",
-  "scopes": ["mcp.read", "mcp.write"]
-}
-```
-
-## Error Responses
-
-### 401 Unauthorized
-
-```json
-{
-  "jsonrpc": "2.0",
-  "error": {
-    "code": -32600,
-    "message": "Unauthorized: Invalid or missing token"
-  },
-  "id": 1
-}
-```
-
-### 403 Forbidden
-
-```json
-{
-  "jsonrpc": "2.0",
-  "error": {
-    "code": -32601,
-    "message": "Forbidden: Insufficient scope for mcp.tools.execute"
-  },
-  "id": 1
-}
-```
-
-## Connection Security
-
-### Transport Security
-
-- **WebSocket Secure (WSS)** for real-time communication
-- **HTTPS** for HTTP-based MCP operations
-- **TLS 1.3** minimum encryption
-
-### Token Validation
-
-1. **JWT signature verification** using JWKS
-2. **Scope validation** against required permissions
-3. **Context verification** for MCP access
-4. **Server ID validation** if specified
-
-## Best Practices
-
-- **Use minimum required scopes** for specific operations
-- **Validate token context** before processing requests
-- **Implement proper error handling** for authentication failures
-- **Monitor authentication events** for security auditing
-- **Use secure transport** (WSS/HTTPS) for all communications
+**Tokens with mcp_server_id:** Access specific MCP server instance
+**Tokens without mcp_server_id:** Access all authorized MCP servers

@@ -1,17 +1,21 @@
 ---
 title: "SaaS Tool Authentication"
-description: "API keys and OAuth flows for external service connections"
+description: "How users authenticate with external SaaS providers"
 ---
 
 # SaaS Tool Authentication
 
-SaaS tool authentication manages connections to external APIs (Pipedrive, Gmail, etc.) using API keys or OAuth flows based on the service capabilities.
+When creating MCP server connections, users provide authentication credentials for external SaaS tools (Pipedrive, Gmail, etc.) through two methods.
 
-## Authentication Methods
+## API Key Authentication
 
-### API Key Authentication
+**Default method** - Users provide their SaaS API keys directly:
 
-**Default method** when `auth_method` is not specified:
+### Via Web Interface
+
+Users paste their API key into a secure form in the web UI when creating an MCP server connection.
+
+### Via Management API
 
 ```json
 {
@@ -23,13 +27,20 @@ SaaS tool authentication manages connections to external APIs (Pipedrive, Gmail,
 
 **Process:**
 
-- Direct storage of API credentials
-- Immediate verification upon creation
-- Simple key-based authentication
+1. User obtains API key from SaaS provider
+2. User provides key through web UI or Management API
+3. Key is securely stored and validated
+4. MCP server uses key for SaaS API calls
 
-### OAuth Authentication
+## OAuth Authentication
 
-**External OAuth flows** for services supporting OAuth:
+**For SaaS providers supporting OAuth** - Users complete OAuth flows:
+
+### Via Web Interface
+
+Users click "Connect to [SaaS provider]" button, which initiates the SaaS provider's OAuth flow.
+
+### Via Management API
 
 ```json
 {
@@ -41,218 +52,57 @@ SaaS tool authentication manages connections to external APIs (Pipedrive, Gmail,
 
 **Process:**
 
-- External OAuth authorization flow
-- Token exchange and storage
-- Automatic token refresh (where supported)
+1. User initiates OAuth flow through platform
+2. User redirected to SaaS provider's consent page
+3. User grants permissions to platform
+4. Platform receives and securely stores OAuth tokens
+5. MCP server uses OAuth tokens for SaaS API calls
+
+## Supported SaaS Providers
+
+### Pipedrive
+
+- **API Key:** Supported via account settings
+- **OAuth:** Supported with `["base"]` scopes
+- **Authorization URL:** `https://oauth.pipedrive.com/oauth/authorize`
+
+### Gmail
+
+- **API Key:** Not supported (OAuth only)
+- **OAuth:** Supported with PKCE requirement
+- **Authorization URL:** `https://accounts.google.com/o/oauth2/v2/auth`
 
 ## Schema Validation
 
-The Management API enforces strict validation through Pydantic schema validation - `api_key` and `auth_method: "oauth"` cannot be used together (422 error).
+**Conflict Prevention:** The Management API enforces that `api_key` and `auth_method: "oauth"` cannot be used together (returns 422 error).
 
-### Valid Configurations
-
-#### API Key Method
+### Valid Requests
 
 ```json
+// API Key method (default)
 {
   "mcp_server": "pipedrive",
-  "access_type": "write",
-  "api_key": "your-api-key"
-  // auth_method defaults to "api_key"
+  "api_key": "user-key"
 }
-```
 
-#### OAuth Method
-
-```json
+// OAuth method
 {
-  "mcp_server": "gmail",
-  "access_type": "read",
+  "mcp_server": "pipedrive",
   "auth_method": "oauth"
-  // No api_key field allowed
 }
 ```
 
-### Validation Errors
-
-#### 422 OAuth + API Key Conflict
+### Invalid Request
 
 ```json
+// This returns 422 error
 {
-  "detail": [
-    {
-      "type": "value_error",
-      "loc": ["body", "api_key"],
-      "msg": "api_key not allowed when auth_method is oauth",
-      "input": {
-        "mcp_server": "pipedrive",
-        "access_type": "write",
-        "auth_method": "oauth",
-        "api_key": "should-not-be-provided"
-      }
-    }
-  ]
+  "mcp_server": "pipedrive",
+  "auth_method": "oauth",
+  "api_key": "should-not-be-provided"
 }
 ```
 
-#### 422 Missing API Key
+## How MCP Servers Use Credentials
 
-```json
-{
-  "detail": [
-    {
-      "type": "missing",
-      "loc": ["body", "api_key"],
-      "msg": "Field required when auth_method is api_key",
-      "input": {
-        "mcp_server": "pipedrive",
-        "access_type": "write",
-        "auth_method": "api_key"
-      }
-    }
-  ]
-}
-```
-
-## OAuth Provider Configuration
-
-### Pipedrive OAuth
-
-```json
-{
-  "authorization_url": "https://oauth.pipedrive.com/oauth/authorize",
-  "token_url": "https://oauth.pipedrive.com/oauth/token",
-  "scopes": ["base"],
-  "pkce_required": false
-}
-```
-
-### Gmail OAuth
-
-```json
-{
-  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
-  "token_url": "https://oauth2.googleapis.com/token",
-  "scopes": ["https://www.googleapis.com/auth/gmail.readonly"],
-  "pkce_required": true
-}
-```
-
-## OAuth Authorization Flow
-
-### Step 1: Authorization Request
-
-```
-GET https://oauth.pipedrive.com/oauth/authorize?
-  client_id=your_client_id&
-  response_type=code&
-  redirect_uri=your_redirect_uri&
-  scope=base&
-  state=signed_state_parameter
-```
-
-### Step 2: Token Exchange
-
-```bash
-curl -X POST https://oauth.pipedrive.com/oauth/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=authorization_code" \
-  -d "code=authorization_code" \
-  -d "redirect_uri=your_redirect_uri" \
-  -d "client_id=your_client_id" \
-  -d "client_secret=your_client_secret"
-```
-
-### Step 3: Token Response
-
-```json
-{
-  "access_token": "access_token_value",
-  "refresh_token": "refresh_token_value",
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "scope": "base"
-}
-```
-
-## Database Storage
-
-### API Key Storage
-
-```sql
-INSERT INTO mcp_server_access (
-  user_id,
-  mcp_server_id,
-  api_key,
-  access_type,
-  auth_method
-) VALUES (1, 1, 'encrypted_api_key', 'write', 'api_key');
-```
-
-### OAuth Token Storage
-
-```sql
-INSERT INTO mcp_server_access (
-  user_id,
-  mcp_server_id,
-  oauth_access_token,
-  oauth_refresh_token,
-  oauth_expires_at,
-  access_type,
-  auth_method
-) VALUES (1, 1, 'access_token', 'refresh_token', '2024-12-31T23:59:59Z', 'write', 'oauth');
-```
-
-## Security Features
-
-### State Validation
-
-OAuth flows use HMAC-signed state parameters:
-
-```python
-def generate_oauth_state(user_id: int, mcp_server: str) -> str:
-    payload = f"{user_id}:{mcp_server}:{int(time.time())}"
-    signature = hmac.new(secret_key, payload.encode(), hashlib.sha256).hexdigest()
-    return base64.urlsafe_b64encode(f"{payload}:{signature}".encode()).decode()
-```
-
-### Token Encryption
-
-All stored credentials are encrypted at rest:
-
-```python
-def encrypt_token(token: str) -> str:
-    cipher = AES.new(encryption_key, AES.MODE_GCM)
-    ciphertext, tag = cipher.encrypt_and_digest(token.encode())
-    return base64.b64encode(cipher.nonce + tag + ciphertext).decode()
-```
-
-## Error Handling
-
-### OAuth Authorization Errors
-
-```json
-{
-  "error": "access_denied",
-  "error_description": "User denied authorization",
-  "state": "original_state_parameter"
-}
-```
-
-### Token Refresh Errors
-
-```json
-{
-  "error": "invalid_grant",
-  "error_description": "Refresh token has expired"
-}
-```
-
-## Best Practices
-
-- **Use OAuth when available** for better security and user experience
-- **Validate state parameters** to prevent CSRF attacks
-- **Implement token refresh** for OAuth integrations
-- **Encrypt credentials** at rest and in transit
-- **Monitor token expiration** and refresh proactively
-- **Handle authorization errors** gracefully with user feedback
+Once authenticated, MCP servers use the stored credentials to make API calls to SaaS providers on behalf of users. The MCP server handles all SaaS API interactions - users only need to provide initial authentication.

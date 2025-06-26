@@ -5,13 +5,11 @@ description: "OAuth 2.1 and PAT authentication for administrative operations"
 
 # Management API Authentication
 
-The Management API handles administrative operations for MCP server connections and platform configuration using OAuth 2.1 and Personal Access Tokens.
+The Management API handles administrative operations for MCP server connections using two authentication methods.
 
-## Authentication Methods
+## OAuth 2.1 Client Credentials
 
-### OAuth 2.1 Client Credentials
-
-Standard OAuth flow for server-to-server authentication:
+Standard OAuth flow for production applications:
 
 ```bash
 curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/token \
@@ -24,100 +22,67 @@ curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/
 
 ```json
 {
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "eyJhbGciOiJSUzI1NiIs...",
   "token_type": "Bearer",
   "expires_in": 3600,
   "scope": "mgmt.read mgmt.write"
 }
 ```
 
-### Personal Access Tokens (PATs)
+**Usage:**
 
-Long-lived tokens for development and automation:
+```bash
+curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIs..." \
+  https://api.kambrium.com/api/v1/mcp-servers
+```
+
+## Personal Access Tokens (PATs)
+
+Long-lived tokens generated directly in the web UI:
+
+**Token Structure:**
 
 ```json
 {
   "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
   "aud": "default-m2m-resource-server-z958ha",
-  "client_id": "pat_NlAKvulkVFJC1GQM-H4ZrHex-8fNoknL",
+  "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
   "scopes": ["mgmt.read", "mgmt.write", "mgmt.admin"],
   "context": "management_api"
 }
 ```
 
-## Required Scopes
-
-| Scope        | Permissions                          | Endpoints                           |
-| ------------ | ------------------------------------ | ----------------------------------- |
-| `mgmt.read`  | Read MCP server configurations       | `GET /api/v1/mcp-servers/*`         |
-| `mgmt.write` | Create/update MCP servers            | `POST`, `PUT /api/v1/mcp-servers/*` |
-| `mgmt.admin` | Delete and administrative operations | `DELETE /api/v1/mcp-servers/*`      |
-
-## Authentication Headers
-
-Include the bearer token in all requests:
+**Usage:**
 
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  https://api.kambrium.com/v1/mcp-servers
+curl -H "Authorization: Bearer <PAT_TOKEN>" \
+  https://api.kambrium.com/api/v1/mcp-servers
 ```
 
-## API Endpoints
+## Available Scopes
 
-### Available MCP Servers
+- **mgmt.read** - Read MCP server configurations and status
+- **mgmt.write** - Create, update, and delete MCP server connections
+- **mgmt.admin** - Administrative operations and system management
+
+## Common Operations
+
+### Create MCP Server Connection
 
 ```bash
-GET /api/v1/mcp-servers/available
-# Requires: mgmt.read scope
+curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcp_server": "pipedrive",
+    "access_type": "write",
+    "api_key": "user-api-key"
+  }'
 ```
 
-### Manage MCP Servers
+### List Available MCP Servers
 
 ```bash
-GET /api/v1/mcp-servers
-POST /api/v1/mcp-servers
-PUT /api/v1/mcp-servers/{id}
-DELETE /api/v1/mcp-servers/{id}
-# Requires: mgmt.read, mgmt.write, or mgmt.admin based on operation
+curl -H "Authorization: Bearer <token>" \
+  https://api.kambrium.com/api/v1/mcp-servers/available
 ```
-
-## Error Responses
-
-### 401 Unauthorized
-
-Invalid or missing authentication token:
-
-```json
-{
-  "error": "unauthorized",
-  "message": "Invalid or missing authentication token"
-}
-```
-
-### 403 Forbidden
-
-Insufficient permissions for the requested operation:
-
-```json
-{
-  "error": "insufficient_scope",
-  "message": "Token lacks required scope: mgmt.write"
-}
-```
-
-## Token Validation
-
-Tokens are validated against:
-
-1. **JWT signature** using JWKS from Cognito
-2. **Token expiration** and validity period
-3. **Required scopes** for the specific endpoint
-4. **Client ID** lookup in the database
-
-## Best Practices
-
-- **Use OAuth 2.1** for production applications
-- **Use PATs** for development and scripting
-- **Store tokens securely** in environment variables
-- **Use minimum required scopes** for security
-- **Monitor token expiration** and refresh as needed
