@@ -9,12 +9,12 @@ Kambrium uses a three-layer authentication architecture to secure access from us
 
 ### Layer 1: Management API
 
-**Purpose:** Administrative control over MCP server connections and lifecycle  
+**Purpose:** Setting up and managing MCP server connections  
 **Authentication:** OAuth 2.1 Client Credentials OR Personal Access Tokens (PATs)
 
 ### Layer 2: MCP Server Runtime
 
-**Purpose:** Execute MCP protocol operations and access tools/resources  
+**Purpose:** Execute MCP protocol operations and access tools, resources, and prompts  
 **Authentication:** OAuth 2.1 Client Credentials OR Personal Access Tokens (PATs)
 
 ### Layer 3: SaaS Tool Connections
@@ -39,29 +39,32 @@ Long-lived tokens for development and scripting:
 
 - **Non-expiring JWT tokens** generated in web UI
 - **Copy-paste experience** like traditional API keys
-- **No Cognito involvement** - generated directly by platform
+- **Platform-generated tokens** - no external dependencies
 - **Perfect for** development, scripting, CI/CD pipelines
 
 ## Authentication Flow
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Management API
-    participant MCP Server
-    participant SaaS Tool
+    participant Client as Client Application
+    participant Management as Management API
+    participant MCP as MCP Server
+    participant SaaS as SaaS Tool
 
-    User->>Management API: OAuth/PAT token
-    Management API->>User: Access granted
-    User->>MCP Server: OAuth/PAT token
-    MCP Server->>SaaS Tool: API key/OAuth token
-    SaaS Tool->>MCP Server: Data response
-    MCP Server->>User: MCP response
+    Client->>Management: OAuth/PAT Authentication
+    Management->>Client: Access Granted
+    Client->>MCP: OAuth/PAT Authentication
+    MCP->>Client: MCP Session Established
+    Client->>MCP: MCP Protocol Request
+    MCP->>SaaS: API Call (with SaaS credentials)
+    SaaS->>MCP: Data Response
+    MCP->>Client: MCP Protocol Response
 ```
 
 ## Key Principles
 
-- **Same methods for both layers:** OAuth 2.1 and PATs work identically for Management API and MCP Server access
-- **Token choice:** OAuth for production, PATs for development
+- **Consistent authentication:** OAuth 2.1 and PATs work identically for Management API and MCP Server access
+- **Token choice:** OAuth for production environments, PATs for development workflows
 - **SaaS integration:** Users provide API keys or complete OAuth flows with SaaS providers
 - **MCP compliance:** All MCP server access follows MCP protocol standards
+- **Secure by design:** Each layer enforces authentication independently

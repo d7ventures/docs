@@ -1,44 +1,75 @@
 ---
 title: "Integrations"
-description: "How users authenticate with external SaaS providers"
+description: "How to authenticate users with external SaaS tools"
 ---
 
-When creating MCP server connections, users provide authentication credentials for external SaaS tools (Pipedrive, Gmail, etc.) through two methods.
+Kambrium provides two approaches for authenticating users with external SaaS tools (Pipedrive, Gmail, etc.), each suited for different integration scenarios.
 
-## API Key Authentication
+## Authentication Methods
 
-**Default method** - Users provide their SaaS API keys directly:
+### API Key Authentication
+
+Simple authentication using SaaS provider API keys - best for services that support it.
+
+### OAuth 2.1 Authentication
+
+Standards-based OAuth flows for secure, token-based authentication with external services.
+
+## Integration Approaches
+
+### Direct Web UI
+
+**Best for:** Individual connections and quick setup
+
+Users complete authentication directly in Kambrium's web interface:
+
+- Click "Connect to [SaaS provider]" button
+- Complete OAuth flow on provider's site
+- Credentials securely stored by Kambrium
+- Ready to use with MCP servers
+
+**When to use:** Creating individual SaaS connections for your own use, prototyping, or simple integrations.
+
+### Management API Integration
+
+**Best for:** Production applications and customer-facing solutions
+
+Embed authentication flows into your own application:
+
+- Your application initiates OAuth through Kambrium's API
+- Users see your branding throughout the flow
+- Full control over user experience
+- Credentials managed programmatically
+
+**When to use:** Building customer-facing applications where users need to connect their own SaaS accounts through your branded interface.
+
+## White-Label OAuth
+
+For production applications requiring seamless user experience, Kambrium supports white-label OAuth flows that maintain your brand identity throughout the authentication process.
+
+<Card
+  title="White-Label OAuth Guide"
+  icon="palette"
+  href="/authentication/white-labeling"
+>
+  Complete guide to embedding branded OAuth flows in your application
+</Card>
+
+## Implementation Examples
 
 ### Via Web Interface
 
-Users paste their API key into a secure form in the web UI when creating an MCP server connection.
+Users authenticate through the Kambrium dashboard when creating MCP server connections:
+
+1. Navigate to "Create MCP Server"
+2. Select SaaS provider (e.g., Pipedrive)
+3. Choose authentication method
+4. Complete OAuth flow or provide API key
+5. MCP server ready for use
 
 ### Via Management API
 
-```json
-{
-  "mcp_server": "pipedrive",
-  "access_type": "write",
-  "api_key": "user-provided-api-key"
-}
-```
-
-**Process:**
-
-1. User obtains API key from SaaS provider
-2. User provides key through web UI or Management API
-3. Key is securely stored and validated
-4. MCP server uses key for SaaS API calls
-
-## OAuth Authentication
-
-**For SaaS providers supporting OAuth** - Users complete OAuth flows:
-
-### Via Web Interface
-
-Users click "Connect to [SaaS provider]" button, which initiates the SaaS provider's OAuth flow.
-
-### Via Management API
+Programmatic authentication for your application:
 
 ```json
 {
@@ -48,31 +79,19 @@ Users click "Connect to [SaaS provider]" button, which initiates the SaaS provid
 }
 ```
 
-**Process:**
+For API key authentication:
 
-1. User initiates OAuth flow through platform
-2. User redirected to SaaS provider's consent page
-3. User grants permissions to platform
-4. Platform receives and securely stores OAuth tokens
-5. MCP server uses OAuth tokens for SaaS API calls
-
-## Supported SaaS Providers
-
-### Pipedrive
-
-- **API Key:** Supported via account settings
-- **OAuth:** Supported with `["base"]` scopes
-- **Authorization URL:** `https://oauth.pipedrive.com/oauth/authorize`
-
-### Gmail
-
-- **API Key:** Not supported (OAuth only)
-- **OAuth:** Supported with PKCE requirement
-- **Authorization URL:** `https://accounts.google.com/o/oauth2/v2/auth`
+```json
+{
+  "mcp_server": "pipedrive",
+  "access_type": "write",
+  "api_key": "user-provided-api-key"
+}
+```
 
 ## Schema Validation
 
-**Conflict Prevention:** The Management API enforces that `api_key` and `auth_method: "oauth"` cannot be used together (returns 422 error).
+The Management API enforces proper authentication method usage to prevent conflicts:
 
 ### Valid Requests
 
@@ -80,7 +99,7 @@ Users click "Connect to [SaaS provider]" button, which initiates the SaaS provid
 // API Key method (default)
 {
   "mcp_server": "pipedrive",
-  "api_key": "user-key"
+  "api_key": "user-provided-key"
 }
 
 // OAuth method
@@ -93,7 +112,7 @@ Users click "Connect to [SaaS provider]" button, which initiates the SaaS provid
 ### Invalid Request
 
 ```json
-// This returns 422 error
+// Returns 422 error - cannot mix authentication methods
 {
   "mcp_server": "pipedrive",
   "auth_method": "oauth",

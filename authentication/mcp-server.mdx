@@ -3,7 +3,7 @@ title: "MCP Server"
 description: "OAuth 2.1 and PAT authentication for MCP protocol operations"
 ---
 
-MCP servers require authentication for protocol operations, tool execution, and resource access using the same two methods as the Management API.
+MCP servers require authentication for protocol operations, tool execution, resource access, and prompt retrieval using the same two methods as the Management API.
 
 ## OAuth 2.1 Client Credentials
 
@@ -13,7 +13,7 @@ Standard OAuth flow for production MCP clients:
 curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -u "client_id:client_secret" \
-  -d "grant_type=client_credentials&scope=mcp.read+mcp.write+mcp.tools.execute"
+  -d "grant_type=client_credentials&scope=mgmt.read+mgmt.write"
 ```
 
 **Response:**
@@ -23,34 +23,47 @@ curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/
   "access_token": "eyJhbGciOiJSUzI1NiIs...",
   "token_type": "Bearer",
   "expires_in": 3600,
-  "scope": "mcp.read mcp.write mcp.tools.execute"
+  "scope": "mgmt.read mgmt.write"
 }
 ```
 
 ## Personal Access Tokens (PATs)
 
-Long-lived tokens for MCP server access:
+Long-lived tokens for MCP server access, suitable for automation and development workflows.
 
-**Token Structure:**
+**Key Characteristics:**
+
+- Long-lived (no expiration by default)
+- Generated via web UI for specific MCP server instances
+- Uses same JWT structure as OAuth tokens for compatibility
+- Suitable for CI/CD, automation, and development scenarios
+
+**Token Claims Structure:**
+
+PAT tokens follow standard JWT structure with these key claims:
 
 ```json
 {
   "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
-  "aud": "default-m2m-resource-server-z958ha",
-  "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
-  "scopes": ["mcp.read", "mcp.write", "mcp.tools.execute"],
-  "context": "mcp_server_access",
-  "mcp_server_id": "server_123"
+  "aud": "kambrium-mcp",
+  "sub": "account_id",
+  "client_id": "pat_<random_string>",
+  "scopes": ["mgmt.read", "mgmt.write"],
+  "token_use": "access",
+  "token_type": "pat",
+  "mcp_server_id": 1,
+  "iat": 1704067200,
+  "jti": "pat_<token_identifier>"
 }
 ```
 
 ## Available Scopes
 
-- **mcp.read** - Read resources and server information
-- **mcp.write** - Execute write operations on tools
-- **mcp.tools.execute** - Execute MCP tools and functions
-- **mcp.resources.read** - Access resource content
-- **mcp.prompts.read** - Access available prompts
+Based on the Management API, the following scopes are used for MCP server access:
+
+- **mgmt.read** - Read MCP server configurations, status, tools, resources, and prompts
+- **mgmt.write** - Create, update, and delete MCP server connections
+- **mgmt.admin** - Administrative operations and system management
 
 ## MCP Protocol Authentication
 
@@ -59,15 +72,29 @@ Long-lived tokens for MCP server access:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 1,
+  "id": "init-12345",
   "method": "initialize",
   "params": {
-    "protocolVersion": "2024-11-05",
+    "protocolVersion": "2025-03-26",
     "capabilities": {
-      "tools": {},
-      "resources": {}
+      "roots": { "listChanged": true },
+      "sampling": {}
+    },
+    "clientInfo": {
+      "name": "test-client",
+      "version": "1.0.0"
     }
   }
+}
+```
+
+### Send Initialized Notification
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/initialized",
+  "params": {}
 }
 ```
 
@@ -76,8 +103,29 @@ Long-lived tokens for MCP server access:
 ```bash
 curl -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' \
-  https://mcp.kambrium.com/server_123
+  -H "Mcp-Session-Id: <session_id>" \
+  -d '{"jsonrpc": "2.0", "id": "tools-1", "method": "tools/list", "params": {}}' \
+  https://mcp.kambrium.com/user_endpoint
+```
+
+### List Available Resources
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: <session_id>" \
+  -d '{"jsonrpc": "2.0", "id": "resources-1", "method": "resources/list", "params": {}}' \
+  https://mcp.kambrium.com/user_endpoint
+```
+
+### List Available Prompts
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: <session_id>" \
+  -d '{"jsonrpc": "2.0", "id": "prompts-1", "method": "prompts/list", "params": {}}' \
+  https://mcp.kambrium.com/user_endpoint
 ```
 
 ### Execute Tool
@@ -85,17 +133,27 @@ curl -H "Authorization: Bearer <token>" \
 ```bash
 curl -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: <session_id>" \
   -d '{
     "jsonrpc": "2.0",
-    "id": 1,
+    "id": "call-1",
     "method": "tools/call",
     "params": {
       "name": "create_deal",
       "arguments": {"title": "New Deal", "value": 1000}
     }
   }' \
-  https://mcp.kambrium.com/server_123
+  https://mcp.kambrium.com/user_endpoint
 ```
+
+## Authentication Flow
+
+1. **Initialize Session**: Send `initialize` request with capabilities
+2. **Session Established**: Receive session ID in `Mcp-Session-Id` header
+3. **Send Notification**: Send `notifications/initialized`
+4. **Make Requests**: Use session ID in subsequent MCP protocol requests
+
+All MCP protocol operations require proper OAuth token or PAT authentication with appropriate scopes.
 
 ## Server-Specific Access
 

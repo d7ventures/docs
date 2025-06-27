@@ -36,17 +36,31 @@ curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIs..." \
 
 ## Personal Access Tokens (PATs)
 
-Long-lived tokens generated directly in the web UI:
+Long-lived tokens generated directly in the platform web interface for automated access and scripting scenarios.
 
-**Token Structure:**
+**Key Characteristics:**
+
+- Long-lived (no expiration by default)
+- Generated via web UI rather than OAuth flow
+- Uses same JWT structure as OAuth tokens for compatibility
+- Suitable for CI/CD, automation, and development workflows
+
+**Token Claims Structure:**
+
+PAT tokens follow standard JWT structure with these key claims:
 
 ```json
 {
   "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_CLpqjbYgz",
-  "aud": "default-m2m-resource-server-z958ha",
-  "client_id": "pat_z7LIZZJTxqCF7mUyPpBr6UKhvYNIrLdV",
-  "scopes": ["mgmt.read", "mgmt.write", "mgmt.admin"],
-  "context": "management_api"
+  "aud": "kambrium-mcp",
+  "sub": "account_id",
+  "client_id": "pat_<random_string>",
+  "scopes": ["mgmt.read", "mgmt.write"],
+  "token_use": "access",
+  "token_type": "pat",
+  "mcp_server_id": 1,
+  "iat": 1704067200,
+  "jti": "pat_<token_identifier>"
 }
 ```
 
@@ -76,6 +90,13 @@ curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
     "access_type": "write",
     "api_key": "user-api-key"
   }'
+```
+
+### List User's MCP Server Connections
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  https://api.kambrium.com/api/v1/mcp-servers
 ```
 
 ### List Available MCP Servers
