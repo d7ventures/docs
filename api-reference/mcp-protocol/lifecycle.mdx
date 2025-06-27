@@ -1,106 +1,76 @@
 ---
-title: "Lifecycle"
-description: "Understanding the MCP connection lifecycle - initialization, capability negotiation, operation, and shutdown phases."
+title: "Session Lifecycle"
+description: "MCP session initialization, capability negotiation, and lifecycle management in our HTTP-based implementation"
 ---
 
-<Info>**Protocol Revision**: 2025-03-26</Info>
+## Session Initialization
 
-The Model Context Protocol (MCP) defines a rigorous lifecycle for client-server connections that ensures proper capability negotiation and state management.
+Our MCP server uses a two-step initialization process over HTTP:
 
-1. **Initialization**: Capability negotiation and protocol version agreement
-2. **Operation**: Normal protocol communication
-3. **Shutdown**: Graceful termination of the connection
+1. **Initialize Request**: Client sends `initialize` method with protocol version and capabilities
+2. **Initialized Notification**: Client confirms readiness with `notifications/initialized`
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
+### Initialize Request
 
-    Note over Client,Server: Initialization Phase
-    activate Client
-    Client->>+Server: initialize request
-    Server-->>Client: initialize response
-    Client--)Server: initialized notification
-
-    Note over Client,Server: Operation Phase
-    rect rgb(200, 220, 250)
-        note over Client,Server: Normal protocol operations
-    end
-
-    Note over Client,Server: Shutdown
-    Client--)-Server: Disconnect
-    deactivate Server
-    Note over Client,Server: Connection closed
-```
-
-## Lifecycle Phases
-
-### Initialization
-
-The initialization phase **MUST** be the first interaction between client and server. During this phase, the client and server:
-
-- Establish protocol version compatibility
-- Exchange and negotiate capabilities
-- Share implementation details
-
-The client **MUST** initiate this phase by sending an `initialize` request containing:
-
-- Protocol version supported
-- Client capabilities
-- Client implementation information
+The client initiates a session by sending an `initialize` request:
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 1,
+  "id": "init-123",
   "method": "initialize",
   "params": {
     "protocolVersion": "2025-03-26",
     "capabilities": {
-      "experimental": {}
+      "roots": {
+        "listChanged": true
+      },
+      "sampling": {}
     },
     "clientInfo": {
       "name": "ExampleClient",
-      "title": "Example Client Display Name",
       "version": "1.0.0"
     }
   }
 }
 ```
 
-The server **MUST** respond with its own capabilities and information:
+### Initialize Response
+
+The server responds with its capabilities and information:
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 1,
+  "id": "init-123",
   "result": {
     "protocolVersion": "2025-03-26",
     "capabilities": {
-      "logging": {},
-      "prompts": {
+      "tools": {
         "listChanged": true
       },
       "resources": {
         "subscribe": true,
         "listChanged": true
       },
-      "tools": {
+      "prompts": {
         "listChanged": true
       },
       "completions": {}
     },
     "serverInfo": {
-      "name": "KambriumMCPServer",
-      "title": "Kambrium MCP Server",
-      "version": "2.1.0"
-    },
-    "instructions": "Optional instructions for the client"
+      "name": "Kambrium MCP Server",
+      "version": "1.0.0"
+    }
   }
 }
 ```
 
-After successful initialization, the client **MUST** send an `initialized` notification to indicate it is ready to begin normal operations:
+The server includes a `Mcp-Session-Id` header in the response for session tracking.
+
+### Initialized Notification
+
+After receiving the initialize response, the client **MUST** send an `initialized` notification:
 
 ```json
 {
@@ -109,179 +79,141 @@ After successful initialization, the client **MUST** send an `initialized` notif
 }
 ```
 
-- The client **SHOULD NOT** send requests other than pings before the server has responded to the `initialize` request.
-- The server **SHOULD NOT** send requests other than pings and logging before receiving the `initialized` notification.
+This notification **MUST** include the `Mcp-Session-Id` header from the initialize response.
+
+#### Lifecycle Rules
+
+- The client **SHOULD NOT** send requests other than pings before the server responds to `initialize`
+- The server **SHOULD NOT** send requests other than pings before receiving `notifications/initialized`
+- All subsequent requests **MUST** include the `Mcp-Session-Id` header
 
 #### Version Negotiation
 
-In the `initialize` request, the client **MUST** send a protocol version it supports. This **SHOULD** be the _latest_ version supported by the client.
+The client **MUST** send a protocol version in the `initialize` request. Our server supports:
 
-If the server supports the requested protocol version, it **MUST** respond with the same version. Otherwise, the server **MUST** respond with another protocol version it supports. This **SHOULD** be the _latest_ version supported by the server.
+- `"2025-03-26"` (current)
+- `"2024-11-05"` (legacy support)
 
-If the client does not support the version in the server's response, it **SHOULD** disconnect.
+If the server supports the requested version, it responds with the same version. Otherwise, it responds with its preferred supported version.
+
+If the client doesn't support the server's response version, it **SHOULD** disconnect.
 
 <Note>
-  **Kambrium HTTP Implementation**: The client **MUST** include the `MCP-Protocol-Version: <protocol-version>` HTTP header on all subsequent requests to the MCP server.
+  **HTTP Implementation**: All subsequent requests **MUST** include the
+  `Mcp-Session-Id` header returned by the initialize method.
 </Note>
 
 #### Capability Negotiation
 
-Client and server capabilities establish which optional protocol features will be available during the session.
+Client and server capabilities establish which protocol features are available during the session.
 
-Server capabilities supported by Kambrium:
+**Our Server Capabilities:**
 
-| Category | Capability     | Description                                              |
-| -------- | -------------- | -------------------------------------------------------- |
-| Server   | `prompts`      | Offers prompt templates                                  |
-| Server   | `resources`    | Provides readable resources                              |
-| Server   | `tools`        | Exposes callable tools                                   |
-| Server   | `logging`      | Emits structured log messages                            |
-| Server   | `completions`  | Supports argument autocompletion                         |
-| Server   | `experimental` | Describes support for non-standard experimental features |
+| Capability    | Support | Features                                                                               |
+| ------------- | ------- | -------------------------------------------------------------------------------------- |
+| `tools`       | ✅      | `listChanged: true` - Tool list change notifications                                   |
+| `resources`   | ✅      | `subscribe: true, listChanged: true` - Resource subscriptions and change notifications |
+| `prompts`     | ✅      | `listChanged: true` - Prompt list change notifications                                 |
+| `completions` | ✅      | Argument completion for prompts and resources                                          |
 
-Capability objects can describe sub-capabilities like:
+**Client Capabilities** (optional):
 
-- `listChanged`: Support for list change notifications (for prompts, resources, and tools)
-- `subscribe`: Support for subscribing to individual items' changes (resources only)
+- `roots`: Directory roots with change notifications
+- `sampling`: LLM sampling configuration
 
-Kambrium implements all standard server capabilities with proper negotiation.
+## Session Management
 
-### Operation
+### Session State
 
-During the operation phase, the client and server exchange messages according to the negotiated capabilities.
+Each session maintains:
 
-Both parties **MUST**:
+- **Session ID**: Unique identifier for the session
+- **Protocol Version**: Negotiated MCP protocol version
+- **Initialization Status**: Whether `notifications/initialized` was received
+- **Request ID Tracking**: Ensures request ID uniqueness within the session
+- **Client Information**: Name and version from initialize request
 
-- Respect the negotiated protocol version
-- Only use capabilities that were successfully negotiated
+### Session Termination
 
-### Shutdown
+Sessions can be terminated by:
 
-During the shutdown phase, one side (usually the client) cleanly terminates the protocol connection. No specific shutdown messages are defined—instead, the underlying transport mechanism should be used to signal connection termination:
+1. **Client Disconnect**: HTTP connection closes
+2. **Server Shutdown**: Graceful server shutdown
+3. **Timeout**: Session inactivity timeout (configurable)
+4. **Error**: Unrecoverable protocol errors
 
-#### HTTP
+### Error Handling
 
-For HTTP transports, shutdown is indicated by closing the associated HTTP connection(s).
-
-Kambrium's HTTP transport supports graceful shutdown via session termination and connection closure.
-
-## Timeouts
-
-Implementations **SHOULD** establish timeouts for all sent requests, to prevent hung connections and resource exhaustion. When the request has not received a success or error response within the timeout period, the sender **SHOULD** issue a cancellation notification for that request and stop waiting for a response.
-
-Kambrium implements proper timeout handling with cancellation support.
-
-SDKs and other middleware **SHOULD** allow these timeouts to be configured on a per-request basis.
-
-Implementations **MAY** choose to reset the timeout clock when receiving a progress notification corresponding to the request, as this implies that work is actually happening. However, implementations **SHOULD** always enforce a maximum timeout, regardless of progress notifications, to limit the impact of a misbehaving client or server.
-
-## Error Handling
-
-Implementations **SHOULD** be prepared to handle these error cases:
-
-- Protocol version mismatch
-- Failure to negotiate required capabilities
-- Request timeouts
-
-Example initialization error:
+**Initialization Errors:**
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 1,
+  "id": "init-123",
   "error": {
     "code": -32602,
     "message": "Invalid params",
     "data": {
-      "details": "Unsupported protocol version",
+      "error": "Unsupported protocol version: 2023-01-01",
       "supported_versions": ["2025-03-26", "2024-11-05"]
     }
   }
 }
 ```
 
-## Session Management
+**Common Error Codes:**
 
-Kambrium maintains session state through the MCP lifecycle:
+- `-32600`: Invalid Request (malformed initialize request)
+- `-32602`: Invalid params (missing protocolVersion, unsupported version)
+- `-32603`: Internal error (server initialization failure)
 
-### Session Creation
+## Implementation Notes
 
-1. Client sends `initialize` request
-2. Server responds with session ID in `Mcp-Session-Id` header
-3. Client sends `initialized` notification with session ID
-4. Session is now active for operations
+### HTTP Transport Specifics
 
-### Session Validation
+- **Session Headers**: `Mcp-Session-Id` header required after initialization
+- **Request ID Uniqueness**: Enforced per session, not globally
+- **Batch Requests**: Supported as per JSON-RPC 2.0 specification
+- **Notifications**: Return HTTP 202 (Accepted) status code
 
-- Request ID uniqueness enforced per session
-- Session timeout after periods of inactivity
-- Authentication state maintained per session
+### Session Lifecycle Example
 
-### Session Termination
-
-- Explicit connection closure
-- Session timeout
-- Authentication revocation
-- Server shutdown
-
-## Authentication Integration
-
-When using HTTP transport, authentication is handled through:
-
-### OAuth 2.1 Flow
-
-1. Client obtains OAuth token through standard flow
-2. Token included in `Authorization` header for all requests
-3. Session tied to authenticated user for tool/resource access
-
-### Personal Access Token (PAT)
-
-1. User generates PAT through management interface
-2. PAT included in `Authorization` header
-3. Session validated against PAT permissions
-
-Example authenticated initialization:
-
-```http
-POST /pipedrive/mcp HTTP/1.1
-Host: api.kambrium.com
-Authorization: Bearer oauth_abc123
-MCP-Protocol-Version: 2025-03-26
-Content-Type: application/json
-
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "initialize",
-  "params": {
-    "protocolVersion": "2025-03-26",
-    "capabilities": {},
-    "clientInfo": {
-      "name": "MyMCPClient",
-      "version": "1.0.0"
+```bash
+# 1. Initialize session
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "init-1",
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "capabilities": {},
+      "clientInfo": {"name": "test-client", "version": "1.0.0"}
     }
-  }
-}
+  }'
+
+# Response includes: Mcp-Session-Id: abc123
+
+# 2. Send initialized notification
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "notifications/initialized"
+  }'
+
+# 3. Use MCP methods with session ID
+curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "tools-1",
+    "method": "tools/list"
+  }'
 ```
-
-For detailed examples of the operation phase, see the MCP Methods documentation.
-
-## Next Steps
-
-<CardGroup cols={3}>
-  <Card
-    title="Transports"
-    icon="network-wired"
-    href="/api-reference/mcp-protocol/transports"
-  />
-  <Card
-    title="Utilities"
-    icon="wrench"
-    href="/api-reference/mcp-protocol/utilities"
-  />
-  <Card
-    title="Error Handling"
-    icon="triangle-exclamation"
-    href="/api-reference/mcp-protocol/error-handling"
-  />
-</CardGroup>{" "}

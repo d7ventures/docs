@@ -1,70 +1,37 @@
 ---
 title: "Base Protocol"
-description: "Understanding the JSON-RPC 2.0 foundation of MCP and core message types for client-server communication."
+description: "JSON-RPC 2.0 message format, request/response patterns, and core protocol requirements in our MCP implementation"
 ---
 
-<Info>**Protocol Revision**: 2025-03-26</Info>
+## Message Format
 
-The Model Context Protocol consists of several key components that work together:
+Our MCP implementation uses JSON-RPC 2.0 as the base message format with specific enhancements for MCP protocol requirements.
 
-- **Base Protocol**: Core JSON-RPC message types
-- **Lifecycle Management**: Connection initialization, capability negotiation, and session control
-- **Server Features**: Resources, prompts, and tools exposed by servers
-- **Utilities**: Cross-cutting concerns like logging, cancellation, progress tracking, and argument completion
+### JSON-RPC 2.0 Foundation
 
-All implementations **MUST** support the base protocol and lifecycle management components. Other components **MAY** be implemented based on the specific needs of the application.
+All messages follow the JSON-RPC 2.0 specification with these core components:
 
-## Messages
-
-All messages between MCP clients and servers **MUST** follow the JSON-RPC 2.0 specification. JSON-RPC messages **MUST** be UTF-8 encoded.
-
-The protocol defines these types of messages:
-
-### Requests
-
-Requests are sent from the client to the server or vice versa, to initiate an operation.
+**Request Message:**
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "request-123",
-  "method": "tools/list",
+  "id": "unique-request-id",
+  "method": "method_name",
   "params": {
-    "cursor": "eyJwYWdlIjogMn0="
+    "parameter": "value"
   }
 }
 ```
 
-**Requirements:**
-
-- Requests **MUST** include a string or integer ID
-- Unlike base JSON-RPC, the ID **MUST NOT** be null
-- The request ID **MUST NOT** have been previously used by the requestor within the same session
-
-### Responses
-
-Responses are sent in reply to requests, containing the result or error of the operation.
-
-**Successful Response:**
+**Success Response:**
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "request-123",
+  "id": "unique-request-id",
   "result": {
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Get weather information for a location",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "location": { "type": "string" }
-          },
-          "required": ["location"]
-        }
-      }
-    ]
+    "response_data": "value"
   }
 }
 ```
@@ -74,183 +41,343 @@ Responses are sent in reply to requests, containing the result or error of the o
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "request-123",
+  "id": "unique-request-id",
   "error": {
     "code": -32602,
     "message": "Invalid params",
-    "data": {
-      "details": "Missing required parameter 'location'",
-      "parameter": "location"
-    }
+    "data": "Additional error details"
   }
 }
 ```
 
-**Requirements:**
-
-- Responses **MUST** include the same ID as the request they correspond to
-- Either a `result` or an `error` **MUST** be set, but not both
-- Results **MAY** follow any JSON object structure
-- Errors **MUST** include an error code and message at minimum
-- Error codes **MUST** be integers
-
-### Notifications
-
-Notifications are sent from the client to the server or vice versa, as a one-way message. The receiver **MUST NOT** send a response.
+**Notification (No Response):**
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "notifications/initialized"
-}
-```
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/cancelled",
+  "method": "notification_method",
   "params": {
-    "requestId": "request-123",
-    "reason": "User cancelled operation"
+    "notification_data": "value"
   }
 }
 ```
 
-**Requirements:**
+## MCP Protocol Enhancements
 
-- Notifications **MUST NOT** include an ID
-- Notifications are one-way messages that expect no response
+### Request ID Requirements
 
-### Batching
+Unlike standard JSON-RPC 2.0, our MCP implementation enforces stricter request ID rules:
 
-JSON-RPC also defines a means to batch multiple requests and notifications, by sending them in an array.
+- **Required**: All requests MUST include an `id` field
+- **Non-null**: The `id` MUST NOT be null (MCP protocol requirement)
+- **Unique**: Request IDs must be unique within a session
+- **Format**: String or number values accepted
 
-Kambrium fully supports JSON-RPC batch requests as required by the MCP specification.
+**Invalid Request (Rejected):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": null, // ❌ Not allowed in MCP
+  "method": "tools/list"
+}
+```
+
+**Valid Request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "tools-list-123", // ✅ Valid
+  "method": "tools/list"
+}
+```
+
+### Batch Request Support
+
+Our implementation supports JSON-RPC 2.0 batch requests for efficiency:
+
+**Batch Request:**
 
 ```json
 [
   {
     "jsonrpc": "2.0",
-    "id": "1",
+    "id": "req-1",
     "method": "tools/list"
   },
   {
     "jsonrpc": "2.0",
-    "id": "2",
+    "id": "req-2",
     "method": "resources/list"
   },
   {
     "jsonrpc": "2.0",
     "method": "notifications/progress",
     "params": {
-      "progressToken": "operation-456",
-      "progress": 50
+      "progressToken": "import-123",
+      "progress": 50,
+      "total": 100
     }
   }
 ]
 ```
 
-**Requirements:**
+**Batch Response:**
 
-- MCP implementations **MAY** support sending JSON-RPC batches
-- MCP implementations **MUST** support receiving JSON-RPC batches
-- Batch responses maintain the same order and correlation via request IDs
+```json
+[
+  {
+    "jsonrpc": "2.0",
+    "id": "req-1",
+    "result": {
+      "tools": [...]
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": "req-2",
+    "result": {
+      "resources": [...]
+    }
+  }
+  // Note: No response for notification
+]
+```
 
-## Authentication
+## Message Categories
 
-MCP provides an Authorization framework for use with HTTP.
+### Requests
 
-Kambrium's HTTP-based transport implements comprehensive authentication:
+Requests expect a response and must include an `id`:
 
-- **OAuth 2.1**: Complete AWS Cognito integration with scopes
-- **Personal Access Tokens (PATs)**: Direct token-based authentication
-- **Required Headers**: `Authorization`, `Mcp-Session-Id`, `MCP-Protocol-Version`
+**Tool Execution Request:**
 
-Implementations using an HTTP-based transport **SHOULD** conform to this specification, whereas implementations using STDIO transport **SHOULD NOT** follow this specification, and instead retrieve credentials from the environment.
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "call-tool-456",
+  "method": "tools/call",
+  "params": {
+    "name": "get_contacts",
+    "arguments": {
+      "limit": 10
+    }
+  }
+}
+```
 
-## Protocol Version
+### Responses
 
-**Current Version:** `2025-03-26`
+Responses correspond to requests and include the matching `id`:
 
-When using HTTP transport, the client **MUST** include the `MCP-Protocol-Version` header:
+**Successful Tool Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "call-tool-456",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Found 10 contacts matching criteria"
+      }
+    ],
+    "isError": false
+  }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "call-tool-456",
+  "error": {
+    "code": -32002,
+    "message": "Tool not found",
+    "data": {
+      "tool_name": "invalid_tool",
+      "available_tools": ["get_contacts", "create_deal"]
+    }
+  }
+}
+```
+
+### Notifications
+
+Notifications don't expect responses and omit the `id` field:
+
+**Progress Notification:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "bulk-import-789",
+    "progress": 75,
+    "total": 100,
+    "message": "Processing record 750 of 1000"
+  }
+}
+```
+
+**Cancellation Notification:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": "long-running-operation",
+    "reason": "User requested cancellation"
+  }
+}
+```
+
+## Error Handling
+
+### Standard JSON-RPC Error Codes
+
+| Code     | Name             | Description      | Common Causes             |
+| -------- | ---------------- | ---------------- | ------------------------- |
+| `-32700` | Parse error      | Invalid JSON     | Malformed request body    |
+| `-32600` | Invalid Request  | Invalid JSON-RPC | Missing required fields   |
+| `-32601` | Method not found | Unknown method   | Typo in method name       |
+| `-32602` | Invalid params   | Bad parameters   | Wrong parameter types     |
+| `-32603` | Internal error   | Server error     | Unexpected server failure |
+
+### MCP-Specific Error Codes
+
+| Code     | Name                 | Description      | Recovery Action             |
+| -------- | -------------------- | ---------------- | --------------------------- |
+| `-32000` | Authentication error | Auth failure     | Refresh token, reinitialize |
+| `-32001` | Resource not found   | Missing resource | Verify resource URI         |
+| `-32002` | Tool not found       | Unknown tool     | Check available tools       |
+
+### Error Response Format
+
+All error responses include structured error information:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "failed-request-123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "parameter": "name",
+      "error": "Missing required parameter",
+      "expected": "string",
+      "received": null
+    }
+  }
+}
+```
+
+## Session Integration
+
+### Session Headers
+
+After session initialization, all requests must include session tracking:
+
+**HTTP Headers:**
+
+```http
+POST /pipedrive/mcp HTTP/1.1
+Authorization: Bearer oauth_token_here
+Content-Type: application/json
+Mcp-Session-Id: session_abc123
+
+{
+  "jsonrpc": "2.0",
+  "id": "request-with-session",
+  "method": "tools/list"
+}
+```
+
+### Session Validation
+
+The server validates session state for each request:
+
+1. **Session Exists**: Session ID must be valid and active
+2. **Authentication**: Session must be properly authenticated
+3. **Request ID Uniqueness**: Request ID must be unique within session
+4. **Method Authorization**: User must have permission for the method
+
+## Content Types and Encoding
+
+### HTTP Content Types
+
+- **Request**: `application/json` (required)
+- **Response**: `application/json` (standard)
+- **Streaming**: `text/event-stream` (for SSE)
+
+### Character Encoding
+
+- **UTF-8**: All text content must be UTF-8 encoded
+- **JSON Strings**: Properly escaped JSON string values
+- **Binary Data**: Base64 encoded when included in JSON
+
+### Example Complete Request/Response
+
+**HTTP Request:**
 
 ```http
 POST /pipedrive/mcp HTTP/1.1
 Host: api.kambrium.com
-Authorization: Bearer oauth_token_here
-MCP-Protocol-Version: 2025-03-26
-Mcp-Session-Id: session_abc123_xyz789
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 Content-Type: application/json
+Mcp-Session-Id: sess_1234567890abcdef
+Content-Length: 123
+
+{
+  "jsonrpc": "2.0",
+  "id": "ping-health-check",
+  "method": "ping"
+}
 ```
 
-## Kambrium Implementation
+**HTTP Response:**
 
-Kambrium provides a complete MCP implementation:
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 67
 
-### JSON-RPC 2.0 Compliance
+{
+  "jsonrpc": "2.0",
+  "id": "ping-health-check",
+  "result": {}
+}
+```
 
-- ✅ **Request/Response Handling**: Proper correlation via request IDs
-- ✅ **Batch Support**: Full JSON-RPC batch request processing
-- ✅ **Notification Handling**: One-way message support
-- ✅ **Error Handling**: Standard JSON-RPC error codes
+## Implementation Notes
 
-### HTTP Transport Features
+### Request Processing
 
-- ✅ **HTTP Methods**: POST for requests, GET for SSE streaming, OPTIONS for CORS
-- ✅ **Headers**: Proper Content-Type, Authorization, and MCP-specific headers
-- ✅ **Status Codes**: HTTP compliance with 200, 202, 400, 401, 404, 500
-- ✅ **Streaming**: Server-Sent Events support for real-time communication
+1. **JSON Parsing**: Parse and validate JSON-RPC 2.0 format
+2. **Session Validation**: Check session ID and authentication
+3. **Method Routing**: Route to appropriate MCP method handler
+4. **Parameter Validation**: Validate method-specific parameters
+5. **Response Generation**: Format response according to protocol
 
-### Security Features
+### Error Recovery
 
-- ✅ **OAuth 2.1**: Complete authentication flow with scopes
-- ✅ **PAT Authentication**: Personal Access Token support
-- ✅ **Input Validation**: Comprehensive parameter validation and sanitization
-- ✅ **Access Control**: User-specific tool and resource permissions
+- **Parse Errors**: Return parse error with null ID
+- **Session Errors**: Return authentication error, client should reinitialize
+- **Method Errors**: Return method not found error with available methods
+- **Parameter Errors**: Return detailed parameter validation errors
 
-### Core Capabilities
+### Performance Considerations
 
-- ✅ **Tools**: Database-driven dynamic tools with user permissions
-- ✅ **Resources**: Static and dynamic resources with subscription support
-- ✅ **Prompts**: Template system with argument substitution
-- ✅ **Completions**: Argument autocompletion functionality
-- ✅ **Utilities**: Ping, progress tracking, cancellation, logging
+- **Batch Requests**: Use batch requests for multiple operations
+- **Request ID Management**: Implement efficient request ID tracking
+- **Error Caching**: Cache validation errors to avoid repeated processing
+- **JSON Optimization**: Use efficient JSON serialization libraries
 
-## Standard Error Codes
-
-Kambrium follows standard JSON-RPC error codes:
-
-| Code             | Message          | Meaning                                           |
-| ---------------- | ---------------- | ------------------------------------------------- |
-| -32700           | Parse error      | Invalid JSON was received                         |
-| -32600           | Invalid Request  | The JSON sent is not a valid Request object       |
-| -32601           | Method not found | The method does not exist / is not available      |
-| -32602           | Invalid params   | Invalid method parameter(s)                       |
-| -32603           | Internal error   | Internal JSON-RPC error                           |
-| -32000 to -32099 | Server error     | Reserved for implementation-defined server-errors |
-
-## Session State
-
-MCP maintains session state through:
-
-- **Session IDs**: Unique identifiers returned by server during initialization
-- **Request ID Tracking**: Ensures request ID uniqueness per session
-- **Authentication State**: OAuth/PAT token validation per session
-- **Capability Negotiation**: Server capabilities established during initialization
-
-For detailed lifecycle management, see the Lifecycle documentation.
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Lifecycle"
-    icon="refresh"
-    href="/api-reference/mcp-protocol/lifecycle"
-  />
-  <Card
-    title="Transports"
-    icon="network-wired"
-    href="/api-reference/mcp-protocol/transports"
-  />
-</CardGroup>{" "}
+This base protocol implementation ensures reliable, efficient communication between MCP clients and our server while maintaining strict compliance with both JSON-RPC 2.0 and MCP protocol requirements.

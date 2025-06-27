@@ -76,13 +76,13 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
-  Empty object `{}` indicating successful ping
+  Empty object `{}` as per MCP 2025-03-26 specification
 </ResponseField>
 
 ### Example Response
 
 <ResponseExample>
-```json Ping Success
+```json Success Response
 {
   "jsonrpc": "2.0",
   "id": "ping-123",
@@ -90,23 +90,107 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
+```json Error Response
+{
+  "jsonrpc": "2.0",
+  "id": "ping-123",
+  "error": {
+    "code": -32603,
+    "message": "Internal error",
+    "data": "Server temporarily unavailable"
+  }
+}
+```
+
 </ResponseExample>
+
+### Rate Limiting
+
+- **Maximum**: 10 pings per minute per client
+- **Burst**: Up to 3 consecutive pings allowed
+- **Exceeded**: Returns HTTP 429 with rate limit error
 
 ---
 
-## Cancellation Notifications
+## Progress Tracking
 
-Cancel in-progress requests using MCP cancellation notifications.
+Track progress of long-running operations through notifications.
 
-### Notification Format
+### Progress Request
+
+To receive progress updates, include a `progressToken` in the request metadata:
 
 <CodeGroup>
-```json Cancellation Notification
+```json Request with Progress Token
+{
+  "jsonrpc": "2.0",
+  "id": "long-operation-1",
+  "method": "tools/call",
+  "params": {
+    "name": "bulk_data_import",
+    "arguments": {
+      "file_path": "/data/large_dataset.csv"
+    },
+    "_meta": {
+      "progressToken": "import-progress-123"
+    }
+  }
+}
+```
+</CodeGroup>
+
+### Progress Notifications
+
+The server sends progress notifications during operation:
+
+<CodeGroup>
+```json Progress Notification
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/progress",
+  "params": {
+    "progressToken": "import-progress-123",
+    "progress": 450,
+    "total": 1000,
+    "message": "Processing records 401-450..."
+  }
+}
+```
+</CodeGroup>
+
+### Progress Parameters
+
+<ParamField path="progressToken" type="string" required>
+  Token from the original request's `_meta.progressToken`
+</ParamField>
+
+<ParamField path="progress" type="number" required>
+  Current progress value (must increase with each notification)
+</ParamField>
+
+<ParamField path="total" type="number">
+  Total expected progress value (optional, may be unknown)
+</ParamField>
+
+<ParamField path="message" type="string">
+  Human-readable progress description
+</ParamField>
+
+---
+
+## Request Cancellation
+
+Cancel in-progress operations using cancellation notifications.
+
+### Cancellation Notification
+
+<CodeGroup>
+```json Cancellation Request
 {
   "jsonrpc": "2.0",
   "method": "notifications/cancelled",
   "params": {
-    "requestId": "operation-456",
+    "requestId": "long-operation-1",
     "reason": "User requested cancellation"
   }
 }
@@ -121,292 +205,119 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     "jsonrpc": "2.0",
     "method": "notifications/cancelled",
     "params": {
-      "requestId": "long-running-operation",
-      "reason": "Timeout exceeded"
+      "requestId": "bulk-import-456",
+      "reason": "Operation timeout"
     }
   }'
 ```
 
 </CodeGroup>
 
-### Notification Parameters
+### Cancellation Parameters
 
-<ParamField path="jsonrpc" type="string" required>
-  Must be `"2.0"` (JSON-RPC version)
+<ParamField path="requestId" type="string" required>
+  ID of the request to cancel (from original request's `id` field)
 </ParamField>
 
-<ParamField path="method" type="string" required>
-  Must be `"notifications/cancelled"`
+<ParamField path="reason" type="string">
+  Optional reason for cancellation (for logging and debugging)
 </ParamField>
 
-<ParamField path="params" type="object" required>
-  Cancellation parameters
+### Cancellation Behavior
 
-  <Expandable title="params properties">
-    <ParamField path="requestId" type="string" required>
-      ID of the request to cancel (must match a previously sent request)
-    </ParamField>
+- **Fire-and-forget**: Cancellation notifications don't receive responses
+- **Race conditions**: Cancellation may arrive after operation completes
+- **Best effort**: Server attempts to stop processing but cannot guarantee immediate cancellation
+- **Status**: Returns HTTP 202 (Accepted) for valid cancellation requests
 
-    <ParamField path="reason" type="string">
-      Optional reason for cancellation (for logging and debugging)
-    </ParamField>
+### Race Condition Handling
 
-  </Expandable>
-</ParamField>
-
-### Behavior Requirements
-
-- **No Response**: Notifications do not return responses (fire-and-forget)
-- **Race Conditions**: Server handles gracefully if request already completed
-- **Unknown Requests**: Server ignores cancellation for unknown request IDs
-- **HTTP Status**: Returns `202 Accepted` for valid notifications
-
-### Example Usage
-
-<ResponseExample>
-```json Simple Cancellation
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/cancelled",
-  "params": {
-    "requestId": "tools-call-789"
-  }
-}
-```
-
-```json Detailed Cancellation
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/cancelled",
-  "params": {
-    "requestId": "resource-read-101",
-    "reason": "User cancelled operation"
-  }
-}
-```
-
-</ResponseExample>
-
----
-
-## Progress Notifications
-
-Track progress of long-running operations using progress tokens.
-
-### Progress Token Setup
-
-Include a `progressToken` in the request metadata to enable progress tracking:
-
-<CodeGroup>
-```json Request with Progress Token
-{
-  "jsonrpc": "2.0",
-  "id": "operation-123",
-  "method": "tools/call",
-  "params": {
-    "name": "process_large_dataset",
-    "arguments": {
-      "dataset_id": "data_2024"
-    },
-    "_meta": {
-      "progressToken": "progress-abc123"
-    }
-  }
-}
-```
-
-</CodeGroup>
-
-### Progress Notification Format
-
-The server sends progress updates using the progress token:
-
-<CodeGroup>
-```json Progress Notification
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "progress-abc123",
-    "progress": 50,
-    "total": 100,
-    "message": "Processing records..."
-  }
-}
-```
-
-```bash Monitoring Progress
-# Server automatically sends progress notifications
-# No explicit request needed - just listen for notifications
-```
-
-</CodeGroup>
-
-### Progress Parameters
-
-<ParamField path="jsonrpc" type="string" required>
-  Must be `"2.0"` (JSON-RPC version)
-</ParamField>
-
-<ParamField path="method" type="string" required>
-  Must be `"notifications/progress"`
-</ParamField>
-
-<ParamField path="params" type="object" required>
-  Progress update parameters
-
-  <Expandable title="params properties">
-    <ParamField path="progressToken" type="string" required>
-      Token from the original request (must match exactly)
-    </ParamField>
-
-    <ParamField path="progress" type="number" required>
-      Current progress value (must increase with each update)
-    </ParamField>
-
-    <ParamField path="total" type="number">
-      Total expected value (optional, may be unknown)
-    </ParamField>
-
-    <ParamField path="message" type="string">
-      Human-readable progress description
-    </ParamField>
-
-  </Expandable>
-</ParamField>
-
-### Progress Flow
+Due to network latency, cancellation notifications may arrive after operation completion:
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Server
-    participant Operation
 
-    Client->>Server: Request with progressToken
-    Server->>Operation: Start processing
-    Server->>Client: Initial response
+    Client->>Server: tools/call (ID: 123)
+    Server->>Server: Processing starts
+    Note over Server: Operation may complete<br/>before cancellation arrives
+    Client->>Server: notifications/cancelled (ID: 123)
+    Server->>Server: Stop processing (if still running)
 
-    loop Progress Updates
-        Operation->>Server: Progress update
-        Server->>Client: notifications/progress
+    alt Operation still running
+        Note over Server: Cancellation successful
+    else Operation completed
+        Note over Server: Cancellation ignored<br/>(operation already done)
     end
-
-    Operation->>Server: Complete
-    Note over Client,Server: No more progress notifications
 ```
 
-### Example Progress Sequence
+Both client and server handle these race conditions gracefully by logging cancellation attempts and ignoring cancellations for completed operations.
+
+## Error Handling
+
+### Common Error Responses
 
 <ResponseExample>
-```json Progress Start (0%)
+```json Invalid Request ID
 {
   "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "import-data-456",
-    "progress": 0,
-    "total": 1000,
-    "message": "Starting data import..."
+  "id": "ping-invalid",
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request",
+    "data": "Request ID must not be null"
   }
 }
 ```
 
-```json Progress Update (25%)
+```json Rate Limit Exceeded
 {
   "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "import-data-456",
-    "progress": 250,
-    "total": 1000,
-    "message": "Processed 250 records"
+  "id": "ping-rate-limited",
+  "error": {
+    "code": -32000,
+    "message": "Request rate limit exceeded",
+    "data": {
+      "retry_after": 60,
+      "limit": 10,
+      "remaining": 0
+    }
   }
 }
 ```
 
-```json Progress Complete (100%)
+```json Session Required
 {
   "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "import-data-456",
-    "progress": 1000,
-    "total": 1000,
-    "message": "Import completed successfully"
+  "id": "ping-no-session",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": "Session ID required for utility methods"
   }
 }
 ```
 
 </ResponseExample>
 
-## Error Handling
+### Error Recovery
 
-### Common Error Codes
+- **Rate Limiting**: Wait for `retry_after` seconds before sending new requests
+- **Session Errors**: Re-initialize session with `initialize` method
+- **Connection Errors**: Check network connectivity and authentication tokens
 
-| Code     | Meaning               | Solution                                      |
-| -------- | --------------------- | --------------------------------------------- |
-| `-32602` | Invalid params        | Check notification format and required fields |
-| `-32001` | Request not found     | Verify request ID exists and is active        |
-| `-32000` | Authentication failed | Check OAuth token and session validity        |
-| `-32603` | Internal server error | Server-side processing error                  |
+## Implementation Notes
 
-### Timeout Handling
+### Performance Considerations
 
-- **Ping timeouts**: Consider connection stale after reasonable timeout
-- **Cancellation race conditions**: Handle gracefully if request completes before cancellation
-- **Progress token cleanup**: Server automatically cleans up completed operations
+- **Ping Frequency**: Limit to health checks and connection validation
+- **Progress Updates**: Server sends updates at reasonable intervals (not every operation)
+- **Cancellation Timing**: Send cancellation as soon as user requests it
 
-## Usage Patterns
+### Best Practices
 
-### Health Monitoring
-
-```javascript
-// Regular health checks
-setInterval(async () => {
-  try {
-    const start = Date.now();
-    await mcpClient.ping();
-    const latency = Date.now() - start;
-    console.log(`MCP server healthy (${latency}ms)`);
-  } catch (error) {
-    console.error("MCP server unhealthy:", error);
-  }
-}, 30000);
-```
-
-### Operation Cancellation
-
-```javascript
-// Cancel long-running operation
-const operationId = "data-export-123";
-
-// Start operation
-const promise = mcpClient.call("export_data", { format: "csv" }, operationId);
-
-// Cancel if needed
-setTimeout(() => {
-  mcpClient.cancel(operationId, "Operation timeout");
-}, 60000);
-```
-
-### Progress Tracking
-
-```javascript
-// Track operation progress
-const progressToken = `progress-${Date.now()}`;
-
-// Listen for progress updates
-mcpClient.onProgress(progressToken, (update) => {
-  const percent = Math.round((update.progress / update.total) * 100);
-  console.log(`${percent}%: ${update.message}`);
-});
-
-// Start operation with progress tracking
-await mcpClient.call(
-  "process_data",
-  { dataset: "large_file.csv" },
-  `operation-${Date.now()}`,
-  { progressToken }
-);
-```
+- **Ping Usage**: Use for connection health checks, not as keepalive mechanism
+- **Progress Tokens**: Use unique, descriptive tokens for easier debugging
+- **Cancellation Reasons**: Provide clear reasons for operational transparency
+- **Error Handling**: Always handle utility method errors gracefully

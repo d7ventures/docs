@@ -1,184 +1,252 @@
 ---
 title: "Protocol Overview"
-description: "Understanding the Model Context Protocol (MCP) - an open protocol that enables seamless integration between LLM applications and external data sources and tools."
+description: "Overview of our MCP 2025-03-26 implementation - core protocol features, transport layer, and architectural decisions"
 ---
 
-<Info>**Protocol Revision**: 2025-03-26</Info>
+## Architecture Overview
 
-[Model Context Protocol](https://modelcontextprotocol.io) (MCP) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you're building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
+Our MCP server implements the Model Context Protocol (MCP) 2025-03-26 specification over HTTP transport with JSON-RPC 2.0 messaging. The implementation focuses on production-ready features for enterprise AI tool integration.
 
-## What is MCP?
+### Core Components
 
-MCP provides a standardized way for applications to:
+- **HTTP Transport**: RESTful endpoints with JSON-RPC 2.0 over HTTPS
+- **Session Management**: Stateful sessions with unique session IDs and lifecycle tracking
+- **Authentication**: OAuth 2.1 and Personal Access Token (PAT) support
+- **Protocol Features**: Tools, resources, prompts, and utility methods
 
-- Share contextual information with language models
-- Expose tools and capabilities to AI systems
-- Build composable integrations and workflows
+## Protocol Features
 
-The protocol uses [JSON-RPC](https://www.jsonrpc.org/) 2.0 messages to establish communication between:
+### Server Capabilities
 
-- **Hosts**: LLM applications that initiate connections
-- **Clients**: Connectors within the host application
-- **Servers**: Services that provide context and capabilities
+Our implementation supports these MCP server features:
 
-MCP takes some inspiration from the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/), which standardizes how to add support for programming languages across a whole ecosystem of development tools. In a similar way, MCP standardizes how to integrate additional context and tools into the ecosystem of AI applications.
+| Feature       | Implementation | Description                                         |
+| ------------- | -------------- | --------------------------------------------------- |
+| **Tools**     | ✅ Full        | Dynamic tool execution with OAuth-filtered access   |
+| **Resources** | ✅ Full        | URI-based resource access with subscription support |
+| **Prompts**   | ✅ Full        | Template-based prompts with argument substitution   |
+| **Utilities** | ✅ Full        | Ping, progress tracking, and request cancellation   |
 
-## Key Details
+### Transport Layer
 
-### Base Protocol
+**HTTP/HTTPS Only**: Our implementation uses HTTP transport exclusively:
 
-- [JSON-RPC](https://www.jsonrpc.org/) 2.0 message format
-- Stateful connections with session management
-- Server and client capability negotiation
-- UTF-8 encoded messages
+- **Endpoints**: Tenant-specific paths (`/{tenant}/mcp`)
+- **Methods**: POST for JSON-RPC, GET for SSE streaming
+- **Headers**: Standard HTTP headers plus MCP-specific session tracking
+- **Security**: TLS encryption, OAuth 2.1 authentication, CORS support
 
-### Server Features
+### Session Architecture
 
-Kambrium implements the following MCP server features:
-
-- **Resources**: Context and data sources with subscription support
-- **Prompts**: Templated messages and workflows with argument completion
-- **Tools**: Executable functions with dynamic database-driven generation
-
-### Additional Utilities
-
-- **Ping**: Connection health monitoring
-- **Progress**: Progress tracking for long-running operations
-- **Cancellation**: Request cancellation mechanism
-- **Logging**: Structured log messages
-- **Pagination**: Cursor-based pagination for large result sets
-
-## Kambrium Implementation
-
-Kambrium's MCP server provides a complete implementation of the MCP 2025-03-26 specification with enterprise-grade features:
-
-### Transport Support
-
-- **HTTP Transport**: Complete Streamable HTTP implementation with POST/GET endpoints
-- **Multi-tenant Architecture**: Single server serves multiple tenants via `/{tenant}/mcp` routing
-- **Session Management**: Full `Mcp-Session-Id` header support for stateful connections
-
-### Authentication & Security
-
-- **OAuth 2.1**: Complete OAuth flow with AWS Cognito integration
-- **Personal Access Tokens (PATs)**: Direct token-based authentication
-- **Security Compliance**: DNS rebinding protection, origin validation, input sanitization
-
-### Core Capabilities
-
-Kambrium implements:
-
-- ✅ **JSON-RPC 2.0**: Complete protocol compliance including batch requests
-- ✅ **Lifecycle Management**: Initialization, capability negotiation, session management
-- ✅ **Tools**: Database-driven dynamic tools with user permissions
-- ✅ **Resources**: Static and dynamic resources with subscription support
-- ✅ **Prompts**: Template system with argument substitution
-- ✅ **Completions**: Argument autocompletion functionality
-- ✅ **Utilities**: Ping, progress tracking, cancellation, logging
-
-## Protocol Flow
-
-### 1. Session Initialization
+**Stateful Sessions**: Unlike basic MCP implementations, we maintain session state:
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Server
+    participant Session Store
 
-    Note over Client,Server: Initialization Phase
-    Client->>+Server: initialize request
-    Server-->>Client: initialize response + Mcp-Session-Id
-    Client--)Server: initialized notification
+    Client->>Server: initialize request
+    Server->>Session Store: Create session
+    Session Store-->>Server: Session ID
+    Server-->>Client: Response + Mcp-Session-Id header
 
-    Note over Client,Server: Operation Phase
-    rect rgb(200, 220, 250)
-        note over Client,Server: Normal protocol operations
-    end
+    Client->>Server: notifications/initialized + Session ID
+    Server->>Session Store: Mark session ready
+
+    Client->>Server: MCP requests + Session ID
+    Server->>Session Store: Validate session
+    Session Store-->>Server: Session valid
+    Server-->>Client: Response
 ```
 
-### 2. Capability Negotiation
+## Message Format
 
-During initialization, the server advertises its supported capabilities:
+### JSON-RPC 2.0 Compliance
+
+All messages follow JSON-RPC 2.0 specification with MCP extensions:
+
+**Request Format:**
 
 ```json
 {
-  "capabilities": {
-    "tools": { "listChanged": true },
-    "resources": { "subscribe": true, "listChanged": true },
-    "prompts": { "listChanged": true },
-    "logging": {},
-    "completions": {}
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "method": "mcp_method_name",
+  "params": {
+    "method_specific_parameters": "value"
   }
 }
 ```
 
-### 3. Method Execution
+**Response Format:**
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-
-    Client->>Server: tools/list
-    Server->>Client: available tools
-    Client->>Server: tools/call
-    Server->>Client: execution result
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "result": {
+    "method_specific_result": "value"
+  }
+}
 ```
 
-## Security and Trust & Safety
+**Error Format:**
 
-MCP enables powerful capabilities through arbitrary data access and code execution paths. Kambrium implements these security principles:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "unique-request-id",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "Additional error context"
+    }
+  }
+}
+```
 
-### Key Principles
+### MCP-Specific Extensions
 
-1. **User Consent and Control**
+**Session Headers:**
 
-   - Users must explicitly consent to and understand all data access and operations
-   - OAuth-based permission system for tool access
-   - Clear authentication and authorization flows
+- `Mcp-Session-Id`: Session identifier (required after initialization)
 
-2. **Data Privacy**
+**Request ID Requirements:**
 
-   - Multi-tenant isolation ensures data separation
-   - OAuth scopes control access to specific capabilities
-   - User data protected with appropriate access controls
+- Must be unique within a session
+- Cannot be null (unlike base JSON-RPC)
+- String or number format supported
 
-3. **Tool Safety**
-   - Database-driven tool permissions per user
-   - OAuth scopes required for tool execution (`mcp.tools.execute`)
-   - Input validation and sanitization for all tool parameters
+**Batch Requests:**
 
-## Next Steps
+- Full JSON-RPC 2.0 batch support
+- Mixed requests and notifications in single batch
+- Responses only for requests (not notifications)
 
-Explore the detailed protocol components:
+## Authentication Integration
 
-<CardGroup cols={3}>
-  <Card
-    title="Base Protocol"
-    icon="code"
-    href="/api-reference/mcp-protocol/base-protocol"
-  />
-  <Card
-    title="Lifecycle"
-    icon="refresh"
-    href="/api-reference/mcp-protocol/lifecycle"
-  />
-  <Card
-    title="Transports"
-    icon="network-wired"
-    href="/api-reference/mcp-protocol/transports"
-  />
-</CardGroup>
+### OAuth 2.1 Flow
 
-<CardGroup cols={2}>
-  <Card
-    title="Utilities"
-    icon="wrench"
-    href="/api-reference/mcp-protocol/utilities"
-  />
-  <Card
-    title="Error Handling"
-    icon="triangle-exclamation"
-    href="/api-reference/mcp-protocol/error-handling"
-  />
-</CardGroup>{" "}
+Standard OAuth 2.1 with PKCE for secure authentication:
+
+1. **Authorization**: Client redirects to OAuth provider
+2. **Token Exchange**: PKCE-protected token exchange
+3. **MCP Access**: Bearer token in Authorization header
+4. **Session Binding**: Token validated per session
+
+### Personal Access Tokens (PAT)
+
+Long-lived tokens for programmatic access:
+
+1. **Token Generation**: User creates PAT through management interface
+2. **JWT Format**: Signed JWT tokens with expiration
+3. **Scope Validation**: Fine-grained permission control
+4. **Session Integration**: PAT validated per MCP session
+
+## Error Handling
+
+### Standard Error Codes
+
+| Code     | Name             | Description        | Recovery                 |
+| -------- | ---------------- | ------------------ | ------------------------ |
+| `-32700` | Parse error      | Invalid JSON       | Fix request format       |
+| `-32600` | Invalid Request  | Invalid JSON-RPC   | Check required fields    |
+| `-32601` | Method not found | Unknown MCP method | Verify method name       |
+| `-32602` | Invalid params   | Bad parameters     | Check parameter format   |
+| `-32603` | Internal error   | Server error       | Retry or contact support |
+
+### MCP-Specific Errors
+
+| Code     | Name               | Description      | Recovery               |
+| -------- | ------------------ | ---------------- | ---------------------- |
+| `-32000` | Authentication     | Auth failure     | Refresh token          |
+| `-32001` | Resource not found | Missing resource | Verify resource exists |
+| `-32002` | Tool not found     | Unknown tool     | Check available tools  |
+
+## Performance Features
+
+### Rate Limiting
+
+Configurable rate limits per endpoint and client:
+
+- **MCP POST**: 60 requests/minute (default)
+- **MCP GET**: 30 requests/minute (streaming)
+- **Health**: 120 requests/minute
+- **Ping**: 10 requests/minute
+
+### Caching
+
+Intelligent caching for performance:
+
+- **Tool Definitions**: Cached with invalidation on changes
+- **Resource Metadata**: TTL-based caching
+- **Session State**: In-memory with cleanup
+
+### Monitoring
+
+Built-in observability features:
+
+- **Health Endpoints**: `/health`, `/ready`, `/metrics`
+- **Request Tracking**: Unique request IDs with timing
+- **Error Logging**: Structured error logging with context
+- **Metrics**: Prometheus-compatible metrics export
+
+## Security Features
+
+### Input Validation
+
+Comprehensive input sanitization:
+
+- **JSON Schema Validation**: Request parameter validation
+- **SQL Injection Prevention**: Parameterized queries
+- **XSS Protection**: Output encoding
+- **Size Limits**: Request and response size limits
+
+### Access Control
+
+Multi-layered access control:
+
+- **Authentication**: OAuth 2.1 or PAT required
+- **Authorization**: Scope-based permission checking
+- **Tool Filtering**: User-specific tool access
+- **Resource Isolation**: Tenant-based resource isolation
+
+## Implementation Notes
+
+### HTTP Transport Specifics
+
+**Connection Management:**
+
+- Stateless HTTP requests with session tracking
+- Connection pooling for performance
+- Graceful shutdown with request completion
+
+**Content Negotiation:**
+
+- `application/json` for JSON-RPC requests
+- `text/event-stream` for SSE streaming
+- Gzip compression support
+
+**CORS Support:**
+
+- Configurable allowed origins
+- Preflight request handling
+- Credential support for authenticated requests
+
+### Scalability Considerations
+
+**Horizontal Scaling:**
+
+- Stateless request processing
+- Shared session storage (Redis/Database)
+- Load balancer compatibility
+
+**Resource Management:**
+
+- Connection pooling
+- Request timeout handling
+- Memory usage monitoring
+
+This implementation provides a production-ready MCP server suitable for enterprise AI tool integration with comprehensive security, monitoring, and scalability features.
