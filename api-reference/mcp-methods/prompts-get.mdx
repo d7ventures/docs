@@ -1,19 +1,19 @@
 ---
 title: "Get Prompt"
 openapi: "POST /{tenant}/mcp"
-description: "Retrieve a specific prompt with argument substitution using JSON-RPC 2.0 protocol. This method returns the rendered prompt content with provided arguments."
+description: "Retrieve a specific prompt template with customized content. Returns structured messages for language model interactions."
 ---
 
-## Protocol Overview
+## Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP to get MCP prompt content. Prompts are templates that can be customized with arguments to generate AI-ready conversation content.
+The `prompts/get` method retrieves a specific prompt template by name and processes it with provided arguments. The result contains structured messages ready for language model consumption.
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+1. **Session Initialization**: Complete `initialize` → `notifications/initialized` flow
 2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
-4. **Prompt Discovery**: Use [`prompts/list`](./prompts-list) to discover available prompts and their arguments
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
+4. **Prompt Discovery**: Use [prompts/list](./prompts-list) to discover available prompts and their arguments
 
 ## Request Format
 
@@ -21,14 +21,13 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to get MCP prompt content. Prompts
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "prompt-get-abc123",
+  "id": "prompts-get-123",
   "method": "prompts/get",
   "params": {
-    "name": "analyze_sales_performance",
+    "name": "deal_analysis",
     "arguments": {
-      "time_period": "last 30 days",
-      "sales_rep": "John Smith",
-      "metric_focus": "revenue"
+      "context_type": "deal",
+      "context_id": "12345"
     }
   }
 }
@@ -41,14 +40,13 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "get-prompt-1",
+    "id": "get-deal-analysis",
     "method": "prompts/get",
     "params": {
-      "name": "customer_outreach_email",
+      "name": "deal_analysis",
       "arguments": {
-        "customer_name": "Jane Doe",
-        "company_name": "Acme Corp",
-        "purpose": "follow-up"
+        "context_type": "deal",
+        "context_id": "12345"
       }
     }
   }'
@@ -63,7 +61,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (cannot be null)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -79,7 +77,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     </ParamField>
     
     <ParamField path="arguments" type="object">
-      Prompt arguments for template substitution
+      Prompt-specific arguments for template customization
     </ParamField>
   </Expandable>
 </ParamField>
@@ -91,28 +89,28 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="id" type="string" required>
-  Matches the request ID
+  Matches the request ID exactly
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
   Prompt content result
   <Expandable title="result properties">
     <ResponseField name="description" type="string">
-      Description of the rendered prompt
+      Optional description of the prompt content
     </ResponseField>
 
     <ResponseField name="messages" type="array" required>
-      Array of conversation messages for the AI system
+      Array of structured messages for language model consumption
       <Expandable title="message object">
         <ResponseField name="role" type="string" required>
-          Message role: `"user"`, `"assistant"`, or `"system"`
+          Message role: `"user"` or `"assistant"`
         </ResponseField>
 
         <ResponseField name="content" type="object" required>
-          Message content
+          Message content with specific type and data
           <Expandable title="content properties">
             <ResponseField name="type" type="string" required>
-              Content type: `"text"`, `"image"`, or `"resource"`
+              Content type: `"text"`, `"image"`, or `"audio"`
             </ResponseField>
 
             <ResponseField name="text" type="string">
@@ -120,15 +118,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
             </ResponseField>
 
             <ResponseField name="data" type="string">
-              Base64-encoded data (when type is "image")
+              Base64-encoded data (when type is "image" or "audio")
             </ResponseField>
 
             <ResponseField name="mimeType" type="string">
-              MIME type for data content
-            </ResponseField>
-
-            <ResponseField name="uri" type="string">
-              Resource URI (when type is "resource")
+              MIME type for binary data content
             </ResponseField>
           </Expandable>
         </ResponseField>
@@ -141,18 +135,18 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ## Example Responses
 
 <ResponseExample>
-```json Sales Analysis Prompt
+```json Success Response - Deal Analysis
 {
   "jsonrpc": "2.0",
-  "id": "prompt-get-abc123",
+  "id": "prompts-get-123",
   "result": {
-    "description": "Sales performance analysis for John Smith over the last 30 days",
+    "description": "Deal analysis prompt with contextual data",
     "messages": [
       {
         "role": "user",
         "content": {
           "type": "text",
-          "text": "Please analyze the sales performance for John Smith over the last 30 days, focusing specifically on revenue metrics.\n\nProvide a comprehensive analysis including:\n\n1. **Revenue Performance**\n   - Total revenue generated\n   - Average deal size\n   - Revenue growth compared to previous period\n   - Revenue trend analysis\n\n2. **Deal Analysis**\n   - Number of deals closed\n   - Conversion rates\n   - Deal velocity\n   - Pipeline health\n\n3. **Performance Insights**\n   - Key strengths and achievements\n   - Areas for improvement\n   - Recommended actions\n\n4. **Comparative Analysis**\n   - Performance vs. team average\n   - Performance vs. targets\n   - Historical performance trends\n\nBase your analysis on the available CRM data and provide actionable recommendations."
+          "text": "Please analyze deal #12345 and provide recommendations for improving the conversion probability. Consider the current stage, timeline, and stakeholder engagement.\n\nDeal Context:\n- ID: 12345\n- Current Stage: Negotiation\n- Value: $50,000\n- Timeline: 30 days remaining\n- Last Activity: 2 days ago"
         }
       }
     ]
@@ -160,18 +154,18 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json Email Generation Prompt
+```json Success Response - Sales Summary
 {
   "jsonrpc": "2.0",
-  "id": "prompt-get-abc123",
+  "id": "prompts-get-456",
   "result": {
-    "description": "Customer outreach email for Jane Doe at Acme Corp",
+    "description": "Sales performance summary for person",
     "messages": [
       {
         "role": "user",
         "content": {
           "type": "text",
-          "text": "Generate a professional follow-up email for Jane Doe at Acme Corp.\n\nContext:\n- Customer: Jane Doe\n- Company: Acme Corp\n- Purpose: Follow-up communication\n- Tone: Professional\n\nEmail Requirements:\n1. Personalized greeting using the customer's name\n2. Reference to previous interaction or meeting\n3. Clear value proposition\n4. Specific next steps or call-to-action\n5. Professional closing\n\nThe email should be:\n- Concise but informative\n- Professional in tone\n- Focused on customer value\n- Easy to respond to\n\nPlease format as a complete email with subject line."
+          "text": "Generate a comprehensive sales performance summary for person ID 789 for the last quarter. Include metrics on:\n\n1. Deals closed and pipeline value\n2. Activity performance and engagement\n3. Success rates and conversion metrics\n4. Areas for improvement and recommendations"
         }
       }
     ]
@@ -179,53 +173,38 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json Prompt with Resource Reference
+```json Error Response - Prompt Not Found
 {
   "jsonrpc": "2.0",
-  "id": "prompt-get-abc123",
-  "result": {
-    "description": "Deal risk assessment with data context",
-    "messages": [
-      {
-        "role": "user",
-        "content": {
-          "type": "text",
-          "text": "Analyze the risk factors for deals currently in the pipeline.\n\nUse the following data sources for your analysis:"
-        }
-      },
-      {
-        "role": "user",
-        "content": {
-          "type": "resource",
-          "uri": "crm://deals/pipeline"
-        }
-      },
-      {
-        "role": "user",
-        "content": {
-          "type": "text",
-          "text": "Focus your risk assessment on:\n1. Deal progression velocity\n2. Stakeholder engagement levels\n3. Competitive landscape\n4. Budget confirmation status\n\nProvide specific recommendations for high-risk deals."
-        }
-      }
-    ]
-  }
-}
-```
-
-```json Prompt Not Found Error
-{
-  "jsonrpc": "2.0",
-  "id": "prompt-get-abc123",
+  "id": "prompts-get-error",
   "error": {
     "code": -32001,
     "message": "Prompt not found",
     "data": {
-      "prompt_name": "invalid_prompt",
+      "prompt_name": "nonexistent_prompt",
       "available_prompts": [
-        "analyze_sales_performance",
-        "customer_outreach_email",
-        "deal_risk_assessment"
-      ]
+        "deal_analysis",
+        "sales_summary",
+        "contact_insights"
+      ],
+      "suggestion": "Check available prompts with prompts/list method"
+    }
+  }
+}
+```
+
+```json Error Response - Missing Required Arguments
+{
+  "jsonrpc": "2.0",
+  "id": "prompts-get-validation",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "parameter": "context_id",
+      "error": "Missing required argument",
+      "prompt_name": "deal_analysis",
+      "required_arguments": ["context_type", "context_id"]
     }
   }
 }
@@ -233,39 +212,165 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 </ResponseExample>
 
-## Message Roles
+## Argument Processing
 
-Prompts can contain messages with different roles:
+### **Required Arguments**
 
-| Role        | Purpose                                    | Example Usage                    |
-| ----------- | ------------------------------------------ | -------------------------------- |
-| `user`      | Instructions or questions to the AI system | Analysis requests, tasks         |
-| `assistant` | Pre-defined AI responses or examples       | Few-shot learning examples       |
-| `system`    | System-level instructions or context       | Behavior guidelines, constraints |
+All arguments marked as `required: true` in the prompt definition must be provided:
 
-## Argument Substitution
+```javascript
+// From prompts/list response
+const prompt = {
+  name: "deal_analysis",
+  arguments: [
+    { name: "context_type", required: true },
+    { name: "context_id", required: true },
+  ],
+};
 
-Prompts support dynamic argument substitution:
+// Must provide all required arguments
+const request = {
+  name: "deal_analysis",
+  arguments: {
+    context_type: "deal", // Required
+    context_id: "12345", // Required
+  },
+};
+```
 
-- **Required arguments** must be provided or the request fails
-- **Optional arguments** can be omitted (default values may apply)
-- **Invalid arguments** return validation errors
-- **Type validation** ensures arguments match expected formats
+### **Optional Arguments**
 
-## Common Error Codes
+Optional arguments can be omitted and may have default values:
 
-| Code     | Meaning          | Solution                                    |
-| -------- | ---------------- | ------------------------------------------- |
-| `-32001` | Prompt not found | Use `prompts/list` to get available prompts |
-| `-32602` | Invalid params   | Check prompt arguments against schema       |
-| `-32000` | Authentication   | Verify OAuth token and required scopes      |
-| `-32603` | Internal error   | Server-side error, check prompt template    |
+```javascript
+// Optional arguments in prompt definition
+const prompt = {
+  name: "sales_summary",
+  arguments: [
+    { name: "person_id", required: true },
+    { name: "time_period", required: false }, // Optional
+  ],
+};
 
-## Next Steps
+// Can omit optional arguments
+const request = {
+  name: "sales_summary",
+  arguments: {
+    person_id: "789",
+    // time_period omitted - will use default
+  },
+};
+```
 
-After getting a prompt, you can:
+### **Argument Validation**
 
-- **Use with AI systems** by sending the messages to language models
-- **Combine with resources** by including resource URIs in conversations
-- **Chain prompts** for complex multi-step workflows
-- **Cache results** for performance (if appropriate for your use case)
+Arguments are validated for:
+
+- **Presence**: Required arguments must be provided
+- **Type**: String values expected for most arguments
+- **Context**: References to valid CRM entities (deals, contacts, etc.)
+
+## Message Structure
+
+### **Role-Based Messages**
+
+Messages follow conversational structure:
+
+- **`user`**: Instructions or questions for the language model
+- **`assistant`**: Pre-filled responses or examples
+
+### **Content Types**
+
+| Type    | Description           | Use Case                                   |
+| ------- | --------------------- | ------------------------------------------ |
+| `text`  | Plain text content    | Instructions, questions, analysis requests |
+| `image` | Base64-encoded images | Visual context, charts, screenshots        |
+| `audio` | Base64-encoded audio  | Voice instructions, recorded context       |
+
+### **Template Processing**
+
+Our implementation processes templates with provided arguments:
+
+1. **Argument Substitution**: Replace placeholders with actual values
+2. **Context Loading**: Fetch relevant data from CRM/database
+3. **Message Assembly**: Construct structured messages
+4. **Validation**: Ensure all required data is available
+
+## OAuth and Permissions
+
+### **Prompt Access Control**
+
+- **User-specific**: Users see only prompts they have permission to access
+- **Database-driven**: Prompt permissions stored and validated in database
+- **Session-bound**: Permissions validated per session and prompt request
+
+### **Context Data Access**
+
+- **Reference Validation**: Context IDs validated against user's accessible data
+- **Permission Checking**: User must have access to referenced CRM entities
+- **Data Filtering**: Only authorized data included in prompt context
+
+## Error Handling
+
+### **Common Error Codes**
+
+| Code     | Meaning                | Recovery                                 |
+| -------- | ---------------------- | ---------------------------------------- |
+| `-32000` | Authentication failure | Refresh token, reinitialize session      |
+| `-32001` | Prompt not found       | Check prompts/list for available prompts |
+| `-32602` | Invalid arguments      | Validate required arguments and types    |
+| `-32603` | Internal server error  | Retry or contact support                 |
+
+### **Argument Validation Errors**
+
+```javascript
+// Missing required argument
+{
+  code: -32602,
+  message: "Invalid params",
+  data: {
+    parameter: "context_id",
+    error: "Missing required argument",
+    prompt_name: "deal_analysis"
+  }
+}
+
+// Invalid context reference
+{
+  code: -32602,
+  message: "Invalid params",
+  data: {
+    parameter: "context_id",
+    error: "Invalid context reference",
+    context_id: "999999"
+  }
+}
+```
+
+## Implementation Notes
+
+### **Request ID Requirements**
+
+- Must be unique within session
+- Cannot be null (enforced by implementation)
+- Used for error correlation and response matching
+
+### **Session Validation**
+
+- `Mcp-Session-Id` header required after initialization
+- Session must be active and authenticated
+- Invalid session returns authentication error
+
+### **Template Caching**
+
+- Prompt templates cached for performance
+- Argument processing optimized for common patterns
+- Context data fetched efficiently from database
+
+### **Performance Considerations**
+
+- Complex prompts may take longer to process
+- Context data fetching optimized per prompt type
+- Results not cached (dynamic content with arguments)
+
+This method provides the core functionality for retrieving personalized, context-aware prompt templates that can be directly used with language models for various CRM and business analysis tasks.

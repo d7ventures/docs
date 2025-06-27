@@ -1,16 +1,16 @@
 ---
 title: "List Tools"
 openapi: "POST /{tenant}/mcp"
-description: "List available tools from an MCP server using JSON-RPC 2.0 protocol. This method returns all tools that can be executed via the tools/call method."
+description: "List available tools that can be executed via tools/call method. Returns OAuth-filtered tools based on user permissions and database configuration."
 ---
 
-## Protocol Overview
+## Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP tools. Tools are functions that can be executed by AI systems to interact with external services and data sources.
+The `tools/list` method returns all tools available to the authenticated user. Tools are dynamically filtered based on OAuth authentication and database permissions, ensuring users only see tools they can execute.
 
 ## Prerequisites
 
-1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
+1. **Session Initialization**: Complete `initialize` → `notifications/initialized` flow
 2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
 3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 
@@ -36,8 +36,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -d '{
     "jsonrpc": "2.0",
     "id": "tools-list-request",
-    "method": "tools/list",
-    "params": {}
+    "method": "tools/list"
   }'
 ```
 
@@ -50,7 +49,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (returned in response)
+  Unique request identifier (cannot be null)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -74,17 +73,17 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="id" type="string" required>
-  Matches the request ID
+  Matches the request ID exactly
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
   Tools list result
   <Expandable title="result properties">
     <ResponseField name="tools" type="array" required>
-      Array of available tools
+      Array of available tools (OAuth-filtered)
       <Expandable title="tool object">
         <ResponseField name="name" type="string" required>
-          Tool identifier (used in tools/call)
+          Tool identifier used in tools/call
         </ResponseField>
 
         <ResponseField name="description" type="string" required>
@@ -95,15 +94,15 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
           JSON Schema defining tool parameters
           <Expandable title="inputSchema properties">
             <ResponseField name="type" type="string">
-              Usually `"object"`
+              Always `"object"` for tool parameters
             </ResponseField>
 
             <ResponseField name="properties" type="object">
-              Parameter definitions
+              Parameter definitions with types and descriptions
             </ResponseField>
 
             <ResponseField name="required" type="array">
-              List of required parameter names
+              Array of required parameter names
             </ResponseField>
           </Expandable>
         </ResponseField>
@@ -111,13 +110,13 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     </ResponseField>
 
     <ResponseField name="nextCursor" type="string">
-      Cursor for next page (if more results available)
+      Cursor for next page (null if no more results)
     </ResponseField>
 
   </Expandable>
 </ResponseField>
 
-## Example Response
+## Example Responses
 
 <ResponseExample>
 ```json Success Response
@@ -128,7 +127,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     "tools": [
       {
         "name": "get_contacts",
-        "description": "Retrieve contacts from the CRM system",
+        "description": "Retrieve contacts from Pipedrive CRM",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -148,7 +147,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
       },
       {
         "name": "create_deal",
-        "description": "Create a new deal in the CRM",
+        "description": "Create a new deal in Pipedrive",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -158,11 +157,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
             },
             "value": {
               "type": "number",
-              "description": "Deal value in currency units"
+              "description": "Deal value"
             },
             "person_id": {
               "type": "integer",
-              "description": "ID of the person associated with the deal"
+              "description": "Associated person ID"
             }
           },
           "required": ["title", "value"]
@@ -174,113 +173,92 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json Error Response
+```json Error Response - Session Required
 {
   "jsonrpc": "2.0",
   "id": "tools-list-123",
   "error": {
     "code": -32000,
-    "message": "Session not initialized",
+    "message": "Authentication failed",
     "data": {
-      "details": "Call 'initialize' method first to establish MCP session."
+      "error": "Session not initialized",
+      "details": "Call 'initialize' method first to establish MCP session"
     }
+  }
+}
+```
+
+```json Error Response - Invalid Request ID
+{
+  "jsonrpc": "2.0",
+  "id": null,
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request",
+    "data": "Request ID must not be null"
   }
 }
 ```
 
 </ResponseExample>
 
-## OAuth Filtering
+## OAuth Filtering Behavior
 
-Tools are filtered based on OAuth authentication:
+Our implementation applies OAuth-based filtering:
 
-- **With OAuth token**: Returns user-specific tools based on database permissions
-- **Access control**: Each user sees only tools they have permission to execute
-- **Consistent results**: Same user always gets same tools (unless permissions change)
+### **User-Specific Tool Access**
 
-## Tool Capabilities
+- **Database Permissions**: Tools filtered based on user's database permissions
+- **OAuth Client ID**: Each client gets appropriate tool subset
+- **Consistent Results**: Same user always gets same tools (unless permissions change)
+- **Dynamic Loading**: Tools loaded from database per user context
 
-Servers may advertise `listChanged` capability to notify when tools are added/removed:
-
-```json
-{
-  "capabilities": {
-    "tools": {
-      "listChanged": true
-    }
-  }
-}
-```
-
-If supported, server will send `notifications/tools/list_changed` when tool list updates.
-
-## Common Error Codes
-
-| Code     | Meaning                 | Solution                       |
-| -------- | ----------------------- | ------------------------------ |
-| `-32000` | Session not initialized | Call `initialize` method first |
-| `-32001` | Authentication failed   | Verify OAuth token validity    |
-| `-32602` | Invalid params          | Check request parameter format |
-| `-32603` | Internal server error   | Server-side processing error   |
-
-## Usage Patterns
-
-### Basic Tool Discovery
+### **Access Control Validation**
 
 ```javascript
-// Get available tools
-const response = await mcpClient.request("tools/list", {});
-const tools = response.result.tools;
-
-console.log(`Found ${tools.length} tools:`);
-tools.forEach((tool) => {
-  console.log(`- ${tool.name}: ${tool.description}`);
-});
+// Tools are filtered based on:
+// 1. User's OAuth token client_id
+// 2. Database tool permissions
+// 3. Tool availability status
+// 4. Server configuration
 ```
 
-### Tool Validation
+### **Tool Count Expectations**
 
-```javascript
-// Validate tool has required parameters
-function validateTool(tool) {
-  const schema = tool.inputSchema;
-  const required = schema?.required || [];
+- **Minimum**: Authenticated users get at least some tools
+- **Maximum**: Limited by user permissions and server configuration
+- **Consistency**: Tool count remains stable across requests for same user
 
-  console.log(`Tool: ${tool.name}`);
-  console.log(`Required params: ${required.join(", ")}`);
+## Implementation Notes
 
-  return {
-    name: tool.name,
-    hasRequiredParams: required.length > 0,
-    requiredParams: required,
-  };
-}
-```
+### **Request ID Requirements**
 
-### Pagination Handling
+- Must be unique within session
+- Cannot be null (enforced by our implementation)
+- String or number format accepted
 
-```javascript
-// Handle paginated tool lists
-async function getAllTools() {
-  let allTools = [];
-  let cursor = null;
+### **Session Management**
 
-  do {
-    const response = await mcpClient.request(
-      "tools/list",
-      cursor ? { cursor } : {}
-    );
+- `Mcp-Session-Id` header required after initialization
+- Session validates OAuth token and permissions
+- Invalid session returns authentication error
 
-    allTools.push(...response.result.tools);
-    cursor = response.result.nextCursor;
-  } while (cursor);
+### **Pagination Support**
 
-  return allTools;
-}
-```
+- Uses cursor-based pagination
+- `nextCursor` provided when more results available
+- Empty cursor parameter returns first page
 
-## Next Steps
+### **Error Handling**
 
-- **Execute tools** with [tools/call](./tools-call)
-- **Get argument completions** using [completion/complete](./utilities)
-- **Monitor changes** via `notifications/tools/list_changed`
+- **-32000**: Authentication/session errors
+- **-32600**: Invalid request format
+- **-32602**: Invalid parameters
+
+### **Performance Considerations**
+
+- Tools cached per user session
+- Database queries optimized for user permissions
+- Results paginated for large tool sets
+
+This endpoint provides the foundation for tool discovery, enabling clients to understand what operations are available before calling [tools/call](./tools-call).

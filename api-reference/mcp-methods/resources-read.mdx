@@ -1,16 +1,16 @@
 ---
 title: "Read Resource"
 openapi: "POST /{tenant}/mcp"
-description: "Read the content of a specific resource using JSON-RPC 2.0 protocol. This method retrieves the actual data or content of a resource by its URI."
+description: "Read a specific resource by URI. Returns resource content with text or blob data based on MIME type."
 ---
 
-## Protocol Overview
+## Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP to read MCP resource content. Resources can contain text, binary data, or structured information.
+The `resources/read` method retrieves the content of a specific resource by its URI. Resources can contain text data, binary data (base64-encoded), or structured information depending on their MIME type.
 
 ## Prerequisites
 
-1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
+1. **Session Initialization**: Complete `initialize` → `notifications/initialized` flow
 2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
 3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 4. **Resource Discovery**: Use [resources/list](./resources-list) to discover available resource URIs
@@ -21,10 +21,10 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to read MCP resource content. Reso
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-123",
+  "id": "resources-read-123",
   "method": "resources/read",
   "params": {
-    "uri": "crm://contacts/database"
+    "uri": "pipedrive://deals/12345"
   }
 }
 ```
@@ -36,10 +36,10 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "read-contacts",
+    "id": "read-deal-data",
     "method": "resources/read",
     "params": {
-      "uri": "crm://contacts/database"
+      "uri": "pipedrive://deals/12345"
     }
   }'
 ```
@@ -53,7 +53,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (returned in response)
+  Unique request identifier (cannot be null)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -77,29 +77,29 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="id" type="string" required>
-  Matches the request ID
+  Matches the request ID exactly
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
   Resource content result
   <Expandable title="result properties">
     <ResponseField name="contents" type="array" required>
-      Array of content items for this resource
+      Array of content items (usually one item per resource)
       <Expandable title="content item">
         <ResponseField name="uri" type="string" required>
-          The resource URI that was requested
-        </ResponseField>
-
-        <ResponseField name="mimeType" type="string" required>
-          MIME type of the content
+          URI of the resource (matches request URI)
         </ResponseField>
 
         <ResponseField name="text" type="string">
-          Text content (when mimeType is text-based)
+          Text content (for text-based resources)
         </ResponseField>
 
         <ResponseField name="blob" type="string">
-          Base64-encoded binary content (when mimeType is binary)
+          Base64-encoded binary data (for binary resources)
+        </ResponseField>
+
+        <ResponseField name="mimeType" type="string">
+          MIME type of the content
         </ResponseField>
       </Expandable>
     </ResponseField>
@@ -110,64 +110,81 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 ## Example Responses
 
 <ResponseExample>
-```json Text Resource Response
+```json Success Response - JSON Data
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-123",
+  "id": "resources-read-123",
   "result": {
     "contents": [
       {
-        "uri": "crm://contacts/database",
-        "mimeType": "application/json",
-        "text": "{\n  \"contacts\": [\n    {\n      \"id\": 123,\n      \"name\": \"John Doe\",\n      \"email\": \"john@example.com\",\n      \"company\": \"Acme Corp\",\n      \"created_at\": \"2024-01-15T10:30:00Z\"\n    },\n    {\n      \"id\": 124,\n      \"name\": \"Jane Smith\",\n      \"email\": \"jane@example.com\",\n      \"company\": \"TechStart Inc\",\n      \"created_at\": \"2024-01-16T14:22:00Z\"\n    }\n  ],\n  \"total_count\": 2,\n  \"last_updated\": \"2024-01-16T14:22:00Z\"\n}"
+        "uri": "pipedrive://deals/12345",
+        "text": "{\n  \"id\": 12345,\n  \"title\": \"Acme Corp Integration Project\",\n  \"value\": 50000,\n  \"currency\": \"USD\",\n  \"stage\": \"Negotiation\",\n  \"probability\": 75,\n  \"expected_close_date\": \"2024-02-15\",\n  \"person\": {\n    \"id\": 67890,\n    \"name\": \"John Doe\",\n    \"email\": \"john@acmecorp.com\"\n  },\n  \"activities\": [\n    {\n      \"type\": \"call\",\n      \"date\": \"2024-01-10\",\n      \"subject\": \"Technical requirements discussion\"\n    },\n    {\n      \"type\": \"email\",\n      \"date\": \"2024-01-12\",\n      \"subject\": \"Proposal follow-up\"\n    }\n  ]\n}",
+        "mimeType": "application/json"
       }
     ]
   }
 }
 ```
 
-```json CSV Resource Response
+```json Success Response - Contact Data
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-123",
+  "id": "resources-read-456",
   "result": {
     "contents": [
       {
-        "uri": "file://reports/sales_data.csv",
-        "mimeType": "text/csv",
-        "text": "Date,Customer,Amount,Status\n2024-01-15,Acme Corp,25000,Closed\n2024-01-16,TechStart Inc,15000,Open\n2024-01-17,Global Solutions,50000,Closed"
+        "uri": "pipedrive://contacts/67890",
+        "text": "{\n  \"id\": 67890,\n  \"name\": \"John Doe\",\n  \"email\": \"john@acmecorp.com\",\n  \"phone\": \"+1-555-123-4567\",\n  \"company\": \"Acme Corp\",\n  \"title\": \"CTO\",\n  \"last_activity\": \"2024-01-12\",\n  \"deals_count\": 3,\n  \"deals_total_value\": 125000,\n  \"interaction_history\": [\n    {\n      \"date\": \"2024-01-12\",\n      \"type\": \"email\",\n      \"direction\": \"outbound\"\n    },\n    {\n      \"date\": \"2024-01-10\",\n      \"type\": \"call\",\n      \"duration\": 1800\n    }\n  ]\n}",
+        "mimeType": "application/json"
       }
     ]
   }
 }
 ```
 
-```json Binary Resource Response
+```json Success Response - PDF Document
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-123",
+  "id": "resources-read-789",
   "result": {
     "contents": [
       {
-        "uri": "file://reports/monthly_report.pdf",
-        "mimeType": "application/pdf",
-        "blob": "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoK..."
+        "uri": "pipedrive://files/proposal_v2.pdf",
+        "blob": "JVBERi0xLjQKJcOkw7zDssOgw6/DqsOpCjEgMCBvYmoKPDwKL1R5cGUgL0NhdGFsb2cKL1BhZ2VzIDIgMCBSCj4+CmVuZG9iago...",
+        "mimeType": "application/pdf"
       }
     ]
   }
 }
 ```
 
-```json Resource Not Found Error
+```json Error Response - Resource Not Found
 {
   "jsonrpc": "2.0",
-  "id": "resource-read-123",
+  "id": "resources-read-error",
   "error": {
-    "code": -32002,
+    "code": -32001,
     "message": "Resource not found",
     "data": {
-      "uri": "crm://contacts/invalid",
-      "details": "The specified resource URI does not exist or is not accessible."
+      "uri": "pipedrive://deals/999999",
+      "error": "Deal with ID 999999 not found or not accessible",
+      "suggestion": "Check available resources with resources/list method"
+    }
+  }
+}
+```
+
+```json Error Response - Access Denied
+{
+  "jsonrpc": "2.0",
+  "id": "resources-read-denied",
+  "error": {
+    "code": -32001,
+    "message": "Access denied",
+    "data": {
+      "uri": "pipedrive://deals/12345",
+      "error": "User does not have permission to access this resource",
+      "required_permission": "read_deals"
     }
   }
 }
@@ -175,194 +192,129 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 </ResponseExample>
 
-## Content Types
+## Content Types and Encoding
 
-Resources can contain different types of content:
+### **Text Content**
 
-| MIME Type          | Content Field | Description          |
-| ------------------ | ------------- | -------------------- |
-| `text/plain`       | `text`        | Plain text content   |
-| `text/csv`         | `text`        | CSV data             |
-| `application/json` | `text`        | JSON structured data |
-| `text/xml`         | `text`        | XML documents        |
-| `application/pdf`  | `blob`        | Binary PDF files     |
-| `image/png`        | `blob`        | Binary image data    |
-| `image/jpeg`       | `blob`        | Binary image data    |
+Text-based resources return content in the `text` field:
 
-## Access Control
+- **JSON Data**: Structured CRM data (deals, contacts, activities)
+- **Plain Text**: Notes, descriptions, logs
+- **CSV Data**: Exported data tables
+- **HTML**: Formatted content
 
-Resource access is controlled by user permissions:
+### **Binary Content**
 
-- **User-specific filtering**: Users can only read resources they have access to
-- **Database validation**: Server validates permissions against database state
-- **Consistent access**: Same user always gets same access (unless permissions change)
+Binary resources return base64-encoded data in the `blob` field:
 
-## Common Error Codes
+- **PDF Documents**: Proposals, contracts, reports
+- **Images**: Screenshots, diagrams, photos
+- **Archives**: ZIP files, compressed data
+- **Other Files**: Any binary file type
 
-| Code     | Meaning            | Solution                                       |
-| -------- | ------------------ | ---------------------------------------------- |
-| `-32002` | Resource not found | Verify URI exists with `resources/list`        |
-| `-32000` | Authentication     | Verify OAuth token and required scopes         |
-| `-32602` | Invalid params     | Check URI format and encoding                  |
-| `-32603` | Internal error     | Server-side error, check resource availability |
+### **Content Validation**
 
-## Usage Patterns
-
-### Basic Resource Reading
+Each content item must have either `text` or `blob`, but not both:
 
 ```javascript
-// Read a resource by URI
-async function readResource(uri) {
-  try {
-    const response = await mcpClient.request("resources/read", {
-      uri: uri,
-    });
+// Valid text content
+{
+  "uri": "pipedrive://deals/123",
+  "text": "{\"id\": 123, \"title\": \"Deal\"}",
+  "mimeType": "application/json"
+}
 
-    const contents = response.result.contents;
-    if (contents.length > 0) {
-      const content = contents[0];
+// Valid blob content
+{
+  "uri": "pipedrive://files/doc.pdf",
+  "blob": "JVBERi0xLjQK...",
+  "mimeType": "application/pdf"
+}
 
-      if (content.text) {
-        return {
-          type: "text",
-          data: content.text,
-          mimeType: content.mimeType,
-        };
-      } else if (content.blob) {
-        return {
-          type: "binary",
-          data: content.blob,
-          mimeType: content.mimeType,
-        };
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Failed to read resource ${uri}:`, error.message);
-    return null;
-  }
+// Invalid - cannot have both text and blob
+{
+  "uri": "pipedrive://invalid",
+  "text": "some text",
+  "blob": "some blob"  // ERROR: Cannot have both
 }
 ```
 
-### Content Type Handling
+## URI Validation and Access Control
 
-```javascript
-// Handle different content types
-function processResourceContent(content) {
-  const { mimeType, text, blob } = content;
+### **URI Format Validation**
 
-  if (text) {
-    switch (mimeType) {
-      case "application/json":
-        return JSON.parse(text);
+Resource URIs must:
 
-      case "text/csv":
-        return parseCsv(text);
+- Follow valid URI syntax with scheme and path
+- Use supported schemes (`pipedrive://`)
+- Reference existing resources in the user's data scope
+- Contain valid identifiers and paths
 
-      case "text/plain":
-      case "text/xml":
-      default:
-        return text;
-    }
-  } else if (blob) {
-    // Handle binary content
-    const buffer = Buffer.from(blob, "base64");
+### **Permission Checking**
 
-    switch (mimeType) {
-      case "application/pdf":
-        return { type: "pdf", buffer };
+Access is controlled at multiple levels:
 
-      case "image/png":
-      case "image/jpeg":
-        return { type: "image", buffer, format: mimeType };
+1. **OAuth Token**: Valid token with `mcp.read` scope
+2. **Session**: Active session with proper authentication
+3. **Resource Permission**: User must have access to specific resource
+4. **Data Ownership**: Resource must be accessible to user's client_id
 
-      default:
-        return { type: "binary", buffer };
-    }
-  }
+### **Error Conditions**
 
-  throw new Error("Resource content has neither text nor blob field");
-}
-```
+| Condition          | Error Code | Description                             |
+| ------------------ | ---------- | --------------------------------------- |
+| Invalid URI format | `-32602`   | Malformed URI parameter                 |
+| Resource not found | `-32001`   | URI doesn't reference existing resource |
+| Access denied      | `-32001`   | User lacks permission for resource      |
+| Session invalid    | `-32000`   | Authentication failure                  |
 
-### Error Handling
+## Implementation Notes
 
-```javascript
-// Comprehensive error handling for resource reading
-async function readResourceSafely(uri) {
-  try {
-    const response = await mcpClient.request("resources/read", {
-      uri: uri,
-    });
+### **Request ID Requirements**
 
-    const contents = response.result.contents;
+- Must be unique within session
+- Cannot be null (enforced by implementation)
+- Used for error correlation and response tracking
 
-    if (!contents || contents.length === 0) {
-      return { success: false, error: "Resource has no content" };
-    }
+### **Session Validation**
 
-    const content = contents[0];
+- `Mcp-Session-Id` header required after initialization
+- Session must be active and authenticated
+- Invalid session returns authentication error
 
-    // Validate URI matches
-    if (content.uri !== uri) {
-      return {
-        success: false,
-        error: `URI mismatch: requested ${uri}, got ${content.uri}`,
-      };
-    }
+### **Content Processing**
 
-    return {
-      success: true,
-      content: content,
-      isText: !!content.text,
-      isBinary: !!content.blob,
-      mimeType: content.mimeType,
-    };
-  } catch (error) {
-    if (error.code === -32002) {
-      return { success: false, error: "Resource not found" };
-    } else if (error.code === -32000) {
-      return { success: false, error: "Authentication failed" };
-    } else {
-      return { success: false, error: error.message };
-    }
-  }
-}
-```
+- Text content returned as-is (no additional encoding)
+- Binary content base64-encoded for JSON transport
+- MIME types accurately reflect actual content
+- Large files may be chunked or compressed
 
-### Batch Resource Reading
+### **Performance Considerations**
 
-```javascript
-// Read multiple resources efficiently
-async function readMultipleResources(uris) {
-  const results = await Promise.allSettled(
-    uris.map((uri) => mcpClient.request("resources/read", { uri }))
-  );
+- Resource content cached where appropriate
+- Large binary files may have size limits
+- Database queries optimized for resource retrieval
+- Binary encoding adds ~33% overhead to file size
 
-  return results.map((result, index) => {
-    const uri = uris[index];
+### **Error Handling**
 
-    if (result.status === "fulfilled") {
-      const contents = result.value.result.contents;
-      return {
-        uri,
-        success: true,
-        content: contents.length > 0 ? contents[0] : null,
-      };
-    } else {
-      return {
-        uri,
-        success: false,
-        error: result.reason.message,
-      };
-    }
-  });
-}
-```
+- **-32000**: Authentication/session errors
+- **-32001**: Resource not found or access denied
+- **-32602**: Invalid URI parameter
+- **-32603**: Internal server error
 
-## Next Steps
+### **Content Size Limits**
 
-- **Discover resources** with [resources/list](./resources-list)
-- **Subscribe to changes** using `resources/subscribe` (if supported)
-- **Use in tools** by referencing resource URIs in tool calls
+- Text content: Generally no strict limit
+- Binary content: May have size restrictions for performance
+- Base64 encoding increases binary file size by ~33%
+- Large files may require alternative access methods
+
+### **MIME Type Detection**
+
+- MIME types automatically detected from content
+- Override capability for specific resource types
+- Standard MIME types used for consistency
+- Custom types supported for specialized content
+
+This method provides access to the actual resource content, enabling language models to process CRM data, documents, and other contextual information for analysis and interaction.

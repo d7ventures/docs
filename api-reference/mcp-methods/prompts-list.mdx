@@ -1,18 +1,18 @@
 ---
 title: "List Prompts"
 openapi: "POST /{tenant}/mcp"
-description: "List available prompts from an MCP server using JSON-RPC 2.0 protocol. Prompts are pre-defined templates that can be used with AI systems."
+description: "List available prompt templates with OAuth-based filtering. Returns prompts that can be retrieved via prompts/get method."
 ---
 
-## Protocol Overview
+## Overview
 
-This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP prompts. Prompts are reusable templates with parameters that can be retrieved and used with AI systems.
+The `prompts/list` method returns all prompt templates available to the authenticated user. Prompts are user-controlled templates that provide structured messages and instructions for language model interactions.
 
 ## Prerequisites
 
-1. **Session Initialization**: You must first call the `initialize` method and send the `notifications/initialized` notification
+1. **Session Initialization**: Complete `initialize` → `notifications/initialized` flow
 2. **Authentication**: Valid OAuth token or PAT with `mcp.read` scope
-3. **Session ID**: Include the `Mcp-Session-Id` header returned by the initialize method
+3. **Session ID**: Include `Mcp-Session-Id` header from initialization
 
 ## Request Format
 
@@ -20,11 +20,10 @@ This endpoint uses **JSON-RPC 2.0** over HTTP to list MCP prompts. Prompts are r
 ```json JSON-RPC Request
 {
   "jsonrpc": "2.0",
-  "id": "prompts-list-abc123",
+  "id": "prompts-list-123",
   "method": "prompts/list",
   "params": {
-    "cursor": "optional_pagination_cursor",
-    "limit": 50
+    "cursor": "optional_pagination_cursor"
   }
 }
 ```
@@ -36,9 +35,8 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
   -H "Mcp-Session-Id: session_abc123" \
   -d '{
     "jsonrpc": "2.0",
-    "id": "get-prompts-1",
-    "method": "prompts/list",
-    "params": {}
+    "id": "prompts-list-request",
+    "method": "prompts/list"
   }'
 ```
 
@@ -51,7 +49,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="id" type="string" required>
-  Unique request identifier (will be returned in response)
+  Unique request identifier (cannot be null)
 </ParamField>
 
 <ParamField path="method" type="string" required>
@@ -59,15 +57,11 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ParamField>
 
 <ParamField path="params" type="object">
-  Optional parameters for the request
+  Optional parameters
 
   <Expandable title="params properties">
     <ParamField path="cursor" type="string">
       Pagination cursor for fetching next page of results
-    </ParamField>
-    
-    <ParamField path="limit" type="integer">
-      Maximum number of prompts to return (typically 1-100)
     </ParamField>
   </Expandable>
 </ParamField>
@@ -79,36 +73,36 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 </ResponseField>
 
 <ResponseField name="id" type="string" required>
-  Matches the request ID
+  Matches the request ID exactly
 </ResponseField>
 
 <ResponseField name="result" type="object" required>
-  The prompts list result
+  Prompts list result
   <Expandable title="result properties">
     <ResponseField name="prompts" type="array" required>
-      Array of available prompts
+      Array of available prompt templates
       <Expandable title="prompt object">
         <ResponseField name="name" type="string" required>
-          Unique prompt identifier (used for prompts/get)
+          Prompt identifier used in prompts/get
         </ResponseField>
 
-        <ResponseField name="description" type="string" required>
+        <ResponseField name="description" type="string">
           Human-readable prompt description
         </ResponseField>
 
         <ResponseField name="arguments" type="array">
-          Array of prompt arguments/parameters
+          Array of prompt arguments for customization
           <Expandable title="argument object">
             <ResponseField name="name" type="string" required>
-              Parameter name
+              Argument name
             </ResponseField>
 
             <ResponseField name="description" type="string" required>
-              Parameter description
+              Argument description
             </ResponseField>
 
             <ResponseField name="required" type="boolean">
-              Whether this parameter is required
+              Whether this argument is required (defaults to false)
             </ResponseField>
           </Expandable>
         </ResponseField>
@@ -116,83 +110,56 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     </ResponseField>
 
     <ResponseField name="nextCursor" type="string">
-      Cursor for next page (if more results available)
+      Cursor for next page (null if no more results)
     </ResponseField>
 
   </Expandable>
 </ResponseField>
 
-## Example Response
+## Example Responses
 
 <ResponseExample>
 ```json Success Response
 {
   "jsonrpc": "2.0",
-  "id": "prompts-list-abc123",
+  "id": "prompts-list-123",
   "result": {
     "prompts": [
       {
-        "name": "analyze_sales_performance",
-        "description": "Analyze sales performance data and provide insights",
+        "name": "deal_analysis",
+        "description": "Analyze deal progress and provide recommendations",
         "arguments": [
+          {
+            "name": "context_type",
+            "description": "Type of analysis context (deal, contact, activity)",
+            "required": true
+          },
+          {
+            "name": "context_id",
+            "description": "ID of the specific item to analyze",
+            "required": true
+          }
+        ]
+      },
+      {
+        "name": "sales_summary",
+        "description": "Generate sales performance summary for a person",
+        "arguments": [
+          {
+            "name": "person_id",
+            "description": "ID of the person to analyze",
+            "required": true
+          },
           {
             "name": "time_period",
-            "description": "Time period to analyze (e.g., 'last 30 days', 'Q1 2024')",
-            "required": true
-          },
-          {
-            "name": "sales_rep",
-            "description": "Specific sales representative to focus on (optional)",
-            "required": false
-          },
-          {
-            "name": "metric_focus",
-            "description": "Primary metric to focus analysis on (revenue, deals, conversion)",
+            "description": "Analysis time period (month, quarter, year)",
             "required": false
           }
         ]
       },
       {
-        "name": "customer_outreach_email",
-        "description": "Generate personalized customer outreach email",
-        "arguments": [
-          {
-            "name": "customer_name",
-            "description": "Name of the customer to contact",
-            "required": true
-          },
-          {
-            "name": "company_name",
-            "description": "Customer's company name",
-            "required": true
-          },
-          {
-            "name": "purpose",
-            "description": "Purpose of the outreach (follow-up, introduction, proposal)",
-            "required": true
-          },
-          {
-            "name": "tone",
-            "description": "Email tone (professional, friendly, urgent)",
-            "required": false
-          }
-        ]
-      },
-      {
-        "name": "deal_risk_assessment",
-        "description": "Assess risk factors for deals in the pipeline",
-        "arguments": [
-          {
-            "name": "deal_stage",
-            "description": "Current stage of deals to assess",
-            "required": false
-          },
-          {
-            "name": "minimum_value",
-            "description": "Minimum deal value to include in assessment",
-            "required": false
-          }
-        ]
+        "name": "contact_insights",
+        "description": "Generate insights about a contact's interaction history"
       }
     ],
     "nextCursor": null
@@ -200,46 +167,131 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 }
 ```
 
-```json Error Response
+```json Error Response - Session Required
 {
   "jsonrpc": "2.0",
-  "id": "prompts-list-abc123",
+  "id": "prompts-list-123",
   "error": {
     "code": -32000,
-    "message": "Session not initialized",
+    "message": "Authentication failed",
     "data": {
-      "details": "Call 'initialize' method first to establish MCP session."
+      "error": "Session not initialized",
+      "details": "Call 'initialize' method first to establish MCP session"
     }
+  }
+}
+```
+
+```json Error Response - Invalid Request ID
+{
+  "jsonrpc": "2.0",
+  "id": null,
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request",
+    "data": "Request ID must not be null"
   }
 }
 ```
 
 </ResponseExample>
 
-## Prompt Categories
+## Prompt Arguments
 
-Prompts can serve various purposes in AI workflows:
+### **Argument Types**
 
-| Category               | Example                     | Use Case                   |
-| ---------------------- | --------------------------- | -------------------------- |
-| **Analysis**           | `analyze_sales_performance` | Data analysis and insights |
-| **Content Generation** | `customer_outreach_email`   | Email, document creation   |
-| **Assessment**         | `deal_risk_assessment`      | Risk evaluation, scoring   |
-| **Research**           | `market_research_summary`   | Information gathering      |
+Prompt arguments define customization parameters:
 
-## Common Error Codes
+- **Required Arguments**: Must be provided in prompts/get calls
+- **Optional Arguments**: Can be omitted, may have default values
+- **Context Arguments**: Often reference IDs from your CRM/system
 
-| Code     | Meaning        | Solution                                      |
-| -------- | -------------- | --------------------------------------------- |
-| `-32602` | Invalid params | Check pagination parameters                   |
-| `-32000` | Authentication | Verify OAuth token and session initialization |
-| `-32603` | Internal error | Server-side error, check logs                 |
+### **Common Argument Patterns**
 
-## Next Steps
+| Pattern        | Example                             | Purpose                   |
+| -------------- | ----------------------------------- | ------------------------- |
+| `context_type` | `"deal"`, `"contact"`, `"activity"` | Specify analysis context  |
+| `context_id`   | `"123"`, `"456"`                    | Target specific records   |
+| `person_id`    | `"789"`                             | Reference person records  |
+| `time_period`  | `"month"`, `"quarter"`              | Define analysis timeframe |
 
-After listing prompts, you can:
+### **Argument Validation**
 
-- **Get prompt content** using [`prompts/get`](./prompts-get)
-- **Use argument completion** with `completion/complete`
-- **Subscribe to changes** via `notifications/prompts/list_changed`
-- **Filter prompts** by categories or use cases
+Arguments are validated when used in [prompts/get](./prompts-get):
+
+```javascript
+// Example argument validation
+const args = {
+  context_type: "deal", // Required: must be provided
+  context_id: "123", // Required: must be provided
+  time_period: "month", // Optional: can be omitted
+};
+```
+
+## OAuth Filtering Behavior
+
+Our implementation applies OAuth-based filtering:
+
+### **User-Specific Prompt Access**
+
+- **Database Permissions**: Prompts filtered based on user's database permissions
+- **OAuth Client ID**: Each client gets appropriate prompt subset
+- **Consistent Results**: Same user always gets same prompts (unless permissions change)
+- **Dynamic Loading**: Prompts loaded from database per user context
+
+### **Access Control Validation**
+
+```javascript
+// Prompts are filtered based on:
+// 1. User's OAuth token client_id
+// 2. Database prompt permissions
+// 3. Prompt availability status
+// 4. Server configuration
+```
+
+### **Prompt Count Expectations**
+
+- **Minimum**: Authenticated users get at least some prompts
+- **Maximum**: Limited by user permissions and server configuration
+- **Consistency**: Prompt count remains stable across requests for same user
+
+## Implementation Notes
+
+### **Request ID Requirements**
+
+- Must be unique within session
+- Cannot be null (enforced by our implementation)
+- String or number format accepted
+
+### **Session Management**
+
+- `Mcp-Session-Id` header required after initialization
+- Session validates OAuth token and permissions
+- Invalid session returns authentication error
+
+### **Pagination Support**
+
+- Uses cursor-based pagination
+- `nextCursor` provided when more results available
+- Empty cursor parameter returns first page
+
+### **Error Handling**
+
+- **-32000**: Authentication/session errors
+- **-32600**: Invalid request format
+- **-32602**: Invalid parameters
+
+### **Performance Considerations**
+
+- Prompts cached per user session
+- Database queries optimized for user permissions
+- Results paginated for large prompt sets
+
+### **Prompt Template Structure**
+
+- Each prompt has unique name identifier
+- Optional arguments define customization parameters
+- Arguments have required/optional flags
+- Descriptions help users understand prompt purpose
+
+This endpoint enables prompt discovery, allowing clients to understand what template-based interactions are available before calling [prompts/get](./prompts-get).
