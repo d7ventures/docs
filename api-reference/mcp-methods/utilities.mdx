@@ -1,323 +1,301 @@
 ---
-title: "Utilities"
+title: "Server Feature Utilities"
 openapi: "POST /{tenant}/mcp"
-description: "MCP utility methods for connection health monitoring, request cancellation, and progress tracking using JSON-RPC 2.0 protocol."
+description: "MCP server feature utility methods for argument completion, structured logging, and pagination using JSON-RPC 2.0 protocol."
 ---
 
 ## Protocol Overview
 
-This endpoint provides **three core MCP utility methods** as defined in the MCP 2025-03-26 specification:
+This endpoint provides **three server feature utility methods** as defined in the MCP 2025-03-26 specification:
 
-1. **`ping`** - Connection health monitoring and latency testing
-2. **`notifications/cancelled`** - Request cancellation notifications
-3. **`notifications/progress`** - Progress tracking for long-running operations
+1. **`completion/complete`** - Argument autocompletion for prompts and resource URIs
+2. **`logging/setLevel`** - Set minimum log level for server notifications
+3. **Cursor-based pagination** - For paginating large result sets in list operations
 
 All methods use **JSON-RPC 2.0** over HTTP with tenant-specific endpoints.
 
 ## Prerequisites
 
-1. **Session Initialization**: Call `initialize` method and send `notifications/initialized` notification
-2. **Authentication**: Valid OAuth token or PAT with appropriate scopes
-3. **Session ID**: Include `Mcp-Session-Id` header from initialization
+1. **Valid OAuth Token** - Bearer token from Cognito authentication
+2. **MCP Session** - Initialized via `initialize` method
+3. **Tenant Context** - Valid tenant path (e.g., `/pipedrive/mcp`, `/hubspot/mcp`)
 
 ---
 
-## Ping Method
+## Completion Utility
 
-Test connection health and measure server responsiveness.
+### `completion/complete`
 
-### Request Format
+Provides argument autocompletion suggestions for prompts and resource URIs. Enables rich, IDE-like experiences where users receive contextual suggestions while entering argument values.
 
-<CodeGroup>
-```json JSON-RPC Request
+#### Request
+
+```json
 {
   "jsonrpc": "2.0",
-  "id": "ping-123",
-  "method": "ping"
+  "id": 1,
+  "method": "completion/complete",
+  "params": {
+    "ref": {
+      "type": "ref/prompt",
+      "name": "code_review"
+    },
+    "argument": {
+      "name": "language",
+      "value": "py"
+    }
+  }
 }
 ```
 
-```bash cURL Example
-curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
-  -H "Authorization: Bearer your_oauth_token" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: session_abc123" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "health-check",
-    "method": "ping"
-  }'
-```
+#### Parameters
 
-</CodeGroup>
+| Field            | Type   | Required    | Description                               |
+| ---------------- | ------ | ----------- | ----------------------------------------- |
+| `ref`            | Object | Yes         | Reference to prompt or resource           |
+| `ref.type`       | String | Yes         | Either `"ref/prompt"` or `"ref/resource"` |
+| `ref.name`       | String | Conditional | Required for `ref/prompt`                 |
+| `ref.uri`        | String | Conditional | Required for `ref/resource`               |
+| `argument`       | Object | Yes         | Argument being completed                  |
+| `argument.name`  | String | Yes         | Name of the argument                      |
+| `argument.value` | String | Yes         | Current partial value                     |
 
-### Request Parameters
+#### Response
 
-<ParamField path="jsonrpc" type="string" required>
-  Must be `"2.0"` (JSON-RPC version)
-</ParamField>
-
-<ParamField path="id" type="string" required>
-  Unique request identifier
-</ParamField>
-
-<ParamField path="method" type="string" required>
-  Must be `"ping"`
-</ParamField>
-
-### Response Format
-
-<ResponseField name="jsonrpc" type="string" required>
-  Always `"2.0"`
-</ResponseField>
-
-<ResponseField name="id" type="string" required>
-  Matches the request ID
-</ResponseField>
-
-<ResponseField name="result" type="object" required>
-  Empty object `{}` as per MCP 2025-03-26 specification
-</ResponseField>
-
-### Example Response
-
-<ResponseExample>
-```json Success Response
+```json
 {
   "jsonrpc": "2.0",
-  "id": "ping-123",
+  "id": 1,
+  "result": {
+    "completion": {
+      "values": ["python", "pytorch", "pyside"],
+      "total": 3,
+      "hasMore": false
+    }
+  }
+}
+```
+
+#### Completion Features
+
+- **Prompt Arguments**: Contextual suggestions based on argument names (language, type, status, format)
+- **Resource URIs**: URI completion based on available resources
+- **Maximum Results**: Limited to 100 suggestions per request
+- **Fuzzy Matching**: Partial string matching for suggestions
+
+---
+
+## Logging Utility
+
+### `logging/setLevel`
+
+Sets the minimum log level for server notifications. Uses RFC 5424 standard log levels and controls which `notifications/message` events are sent to clients.
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "logging/setLevel",
+  "params": {
+    "level": "info"
+  }
+}
+```
+
+#### Parameters
+
+| Field   | Type   | Required | Description                                                                 |
+| ------- | ------ | -------- | --------------------------------------------------------------------------- |
+| `level` | String | Yes      | Log level (debug, info, notice, warning, error, critical, alert, emergency) |
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
   "result": {}
 }
 ```
 
-```json Error Response
+#### Log Levels (RFC 5424)
+
+| Level       | Description                      | Example Use Case           |
+| ----------- | -------------------------------- | -------------------------- |
+| `debug`     | Detailed debugging information   | Function entry/exit points |
+| `info`      | General informational messages   | Operation progress updates |
+| `notice`    | Normal but significant events    | Configuration changes      |
+| `warning`   | Warning conditions               | Deprecated feature usage   |
+| `error`     | Error conditions                 | Operation failures         |
+| `critical`  | Critical conditions              | System component failures  |
+| `alert`     | Action must be taken immediately | Data corruption detected   |
+| `emergency` | System is unusable               | Complete system failure    |
+
+#### Log Message Notifications
+
+Once a level is set, the server sends `notifications/message` for qualifying log events:
+
+```json
 {
   "jsonrpc": "2.0",
-  "id": "ping-123",
-  "error": {
-    "code": -32603,
-    "message": "Internal error",
-    "data": "Server temporarily unavailable"
-  }
-}
-```
-
-</ResponseExample>
-
-### Rate Limiting
-
-- **Maximum**: 10 pings per minute per client
-- **Burst**: Up to 3 consecutive pings allowed
-- **Exceeded**: Returns HTTP 429 with rate limit error
-
----
-
-## Progress Tracking
-
-Track progress of long-running operations through notifications.
-
-### Progress Request
-
-To receive progress updates, include a `progressToken` in the request metadata:
-
-<CodeGroup>
-```json Request with Progress Token
-{
-  "jsonrpc": "2.0",
-  "id": "long-operation-1",
-  "method": "tools/call",
+  "method": "notifications/message",
   "params": {
-    "name": "bulk_data_import",
-    "arguments": {
-      "file_path": "/data/large_dataset.csv"
-    },
-    "_meta": {
-      "progressToken": "import-progress-123"
+    "level": "error",
+    "logger": "database",
+    "data": {
+      "error": "Connection failed",
+      "details": {
+        "host": "localhost",
+        "port": 5432
+      }
     }
   }
 }
 ```
-</CodeGroup>
-
-### Progress Notifications
-
-The server sends progress notifications during operation:
-
-<CodeGroup>
-```json Progress Notification
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/progress",
-  "params": {
-    "progressToken": "import-progress-123",
-    "progress": 450,
-    "total": 1000,
-    "message": "Processing records 401-450..."
-  }
-}
-```
-</CodeGroup>
-
-### Progress Parameters
-
-<ParamField path="progressToken" type="string" required>
-  Token from the original request's `_meta.progressToken`
-</ParamField>
-
-<ParamField path="progress" type="number" required>
-  Current progress value (must increase with each notification)
-</ParamField>
-
-<ParamField path="total" type="number">
-  Total expected progress value (optional, may be unknown)
-</ParamField>
-
-<ParamField path="message" type="string">
-  Human-readable progress description
-</ParamField>
 
 ---
 
-## Request Cancellation
+## Pagination Utility
 
-Cancel in-progress operations using cancellation notifications.
+### Cursor-based Pagination
 
-### Cancellation Notification
+Our implementation supports cursor-based pagination for all list operations that may return large result sets. Pagination uses opaque cursor tokens instead of numbered pages.
 
-<CodeGroup>
-```json Cancellation Request
+#### Supported Operations
+
+- `resources/list` - List available resources
+- `resources/templates/list` - List resource templates
+- `prompts/list` - List available prompts
+- `tools/list` - List available tools
+
+#### Pagination Request
+
+```json
 {
   "jsonrpc": "2.0",
-  "method": "notifications/cancelled",
+  "id": 3,
+  "method": "resources/list",
   "params": {
-    "requestId": "long-operation-1",
-    "reason": "User requested cancellation"
+    "cursor": "eyJvZmZzZXQiOjUwLCJwYWdlX3NpemUiOjUwfQ=="
   }
 }
 ```
 
-```bash cURL Example
-curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
-  -H "Authorization: Bearer your_oauth_token" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: session_abc123" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "notifications/cancelled",
-    "params": {
-      "requestId": "bulk-import-456",
-      "reason": "Operation timeout"
-    }
-  }'
+#### Pagination Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "resources": [
+      {
+        "uri": "file:///example.txt",
+        "name": "example.txt",
+        "mimeType": "text/plain"
+      }
+    ],
+    "nextCursor": "eyJvZmZzZXQiOjEwMCwicGFnZV9zaXplIjo1MH0="
+  }
+}
 ```
 
-</CodeGroup>
+#### Pagination Features
 
-### Cancellation Parameters
+- **Opaque Cursors**: Base64-encoded tokens containing position information
+- **Default Page Size**: 50 items per page
+- **Maximum Page Size**: 100 items per page
+- **Total Count**: Not exposed (cursor-based approach)
+- **Stable Ordering**: Consistent results across pagination requests
 
-<ParamField path="requestId" type="string" required>
-  ID of the request to cancel (from original request's `id` field)
-</ParamField>
+#### Pagination Flow
 
-<ParamField path="reason" type="string">
-  Optional reason for cancellation (for logging and debugging)
-</ParamField>
+1. **First Request**: Send list request without cursor parameter
+2. **Check Next Cursor**: Look for `nextCursor` in response
+3. **Continue Pagination**: Use `nextCursor` value in subsequent requests
+4. **End Detection**: Missing `nextCursor` indicates no more results
 
-### Cancellation Behavior
-
-- **Fire-and-forget**: Cancellation notifications don't receive responses
-- **Race conditions**: Cancellation may arrive after operation completes
-- **Best effort**: Server attempts to stop processing but cannot guarantee immediate cancellation
-- **Status**: Returns HTTP 202 (Accepted) for valid cancellation requests
-
-### Race Condition Handling
-
-Due to network latency, cancellation notifications may arrive after operation completion:
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-
-    Client->>Server: tools/call (ID: 123)
-    Server->>Server: Processing starts
-    Note over Server: Operation may complete<br/>before cancellation arrives
-    Client->>Server: notifications/cancelled (ID: 123)
-    Server->>Server: Stop processing (if still running)
-
-    alt Operation still running
-        Note over Server: Cancellation successful
-    else Operation completed
-        Note over Server: Cancellation ignored<br/>(operation already done)
-    end
-```
-
-Both client and server handle these race conditions gracefully by logging cancellation attempts and ignoring cancellations for completed operations.
+---
 
 ## Error Handling
 
-### Common Error Responses
+All utilities follow standard JSON-RPC 2.0 error responses:
 
-<ResponseExample>
-```json Invalid Request ID
+#### Common Error Codes
+
+| Code     | Message          | Description                   |
+| -------- | ---------------- | ----------------------------- |
+| `-32601` | Method not found | Utility method not supported  |
+| `-32602` | Invalid params   | Missing or invalid parameters |
+| `-32603` | Internal error   | Server-side processing error  |
+
+#### Error Response Format
+
+```json
 {
   "jsonrpc": "2.0",
-  "id": "ping-invalid",
-  "error": {
-    "code": -32600,
-    "message": "Invalid Request",
-    "data": "Request ID must not be null"
-  }
-}
-```
-
-```json Rate Limit Exceeded
-{
-  "jsonrpc": "2.0",
-  "id": "ping-rate-limited",
-  "error": {
-    "code": -32000,
-    "message": "Request rate limit exceeded",
-    "data": {
-      "retry_after": 60,
-      "limit": 10,
-      "remaining": 0
-    }
-  }
-}
-```
-
-```json Session Required
-{
-  "jsonrpc": "2.0",
-  "id": "ping-no-session",
+  "id": 1,
   "error": {
     "code": -32602,
-    "message": "Invalid params",
-    "data": "Session ID required for utility methods"
+    "message": "Invalid params: missing level parameter"
   }
 }
 ```
 
-</ResponseExample>
+---
 
-### Error Recovery
+## Security Considerations
 
-- **Rate Limiting**: Wait for `retry_after` seconds before sending new requests
-- **Session Errors**: Re-initialize session with `initialize` method
-- **Connection Errors**: Check network connectivity and authentication tokens
+### Completion Security
+
+- Input validation on all completion parameters
+- Rate limiting to prevent abuse
+- Access control based on OAuth permissions
+- No sensitive data in completion suggestions
+
+### Logging Security
+
+- Log messages must not contain credentials or secrets
+- Personal identifying information is filtered
+- Internal system details are sanitized
+- Rate limiting prevents log flooding
+
+### Pagination Security
+
+- Cursor validation prevents injection attacks
+- Access control applied to all paginated resources
+- Consistent permissions across pagination requests
+- Resource filtering based on OAuth scope
+
+---
 
 ## Implementation Notes
 
-### Performance Considerations
+### Server Capabilities
 
-- **Ping Frequency**: Limit to health checks and connection validation
-- **Progress Updates**: Server sends updates at reasonable intervals (not every operation)
-- **Cancellation Timing**: Send cancellation as soon as user requests it
+These utilities are declared in the server's capabilities during initialization:
 
-### Best Practices
+```json
+{
+  "capabilities": {
+    "completions": {},
+    "logging": {}
+  }
+}
+```
 
-- **Ping Usage**: Use for connection health checks, not as keepalive mechanism
-- **Progress Tokens**: Use unique, descriptive tokens for easier debugging
-- **Cancellation Reasons**: Provide clear reasons for operational transparency
-- **Error Handling**: Always handle utility method errors gracefully
+Note: Pagination is implicit in list operations and does not require a separate capability declaration.
+
+### Rate Limiting
+
+- **Completion**: Debounced requests recommended
+- **Logging**: Message emission rate controlled by server
+- **Pagination**: Standard HTTP rate limits apply
+
+### Client Integration
+
+- **Completion**: Implement debouncing for real-time suggestions
+- **Logging**: Handle notifications asynchronously
+- **Pagination**: Cache cursors appropriately but do not persist across sessions
