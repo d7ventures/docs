@@ -1,0 +1,247 @@
+---
+title: "OAuth Integration"
+description: "Integrate OAuth flows into your application for seamless user authentication"
+---
+
+Kambrium provides OAuth authorization URL generation that allows you to integrate OAuth flows into your application, enabling your users to connect their SaaS accounts (Pipedrive, Gmail, etc.) through your interface.
+
+## Overview
+
+When building applications that need to connect to external SaaS tools on behalf of your users, you can use Kambrium's Management API to generate OAuth authorization URLs. This allows users to authenticate with their preferred SaaS providers while maintaining your application's user experience.
+
+## How It Works
+
+Your application acts as an intermediary between your users and SaaS providers:
+
+1. **Request OAuth URL**: Your application calls Kambrium's Management API to create an MCP server connection with OAuth authentication
+2. **Get Authorization URL**: Kambrium returns a standard OAuth authorization URL pointing to the SaaS provider
+3. **User Authentication**: Your user completes OAuth flow on the SaaS provider's website (Pipedrive, Gmail, etc.)
+4. **Credentials Stored**: Kambrium securely stores the OAuth credentials for future API access
+
+## Implementation
+
+### Creating OAuth Connections
+
+Use the Management API to create OAuth-enabled MCP server connections:
+
+```python
+import requests
+
+# Create OAuth connection
+response = requests.post(
+    "https://api.kambrium.ai/api/v1/mcp-servers",
+    headers={
+        "Authorization": f"Bearer {your_management_token}",
+        "Content-Type": "application/json"
+    },
+    json={
+        "mcp_server": "pipedrive",
+        "access_type": "write",
+        "auth_method": "oauth"
+    }
+)
+
+connection_data = response.json()["data"]
+
+# Get the OAuth authorization URL
+auth_url = connection_data["authorization_url"]
+provider_name = connection_data.get("mcp_server_name", "Provider")
+
+print(f"Direct user to: {auth_url}")
+```
+
+### Integration Patterns
+
+#### Popup Window Integration
+
+Most applications open OAuth URLs in popup windows for better user experience:
+
+```javascript
+// Open OAuth URL in popup
+const popup = window.open(
+  authorizationUrl,
+  "oauth_popup",
+  "width=500,height=600,scrollbars=yes,resizable=yes"
+);
+
+// Listen for OAuth completion
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "oauth_success") {
+    // OAuth completed successfully
+    console.log("OAuth completed for:", event.data.providerName);
+    popup.close();
+
+    // Refresh your UI or redirect user
+    window.location.reload();
+  }
+});
+```
+
+#### Direct Redirect Integration
+
+For simpler implementations, redirect the entire browser window:
+
+```javascript
+// Redirect to OAuth URL
+window.location.href = authorizationUrl;
+
+// Handle return to your callback URL
+// (OAuth provider will redirect back to your configured callback)
+```
+
+## OAuth Flow Details
+
+### Standard OAuth 2.0 Flow
+
+The OAuth flow follows standard OAuth 2.0 Authorization Code flow:
+
+1. **Authorization Request**: User is directed to SaaS provider's OAuth server
+2. **User Consent**: User logs in and grants permissions on provider's website
+3. **Authorization Code**: Provider redirects to Kambrium's callback with authorization code
+4. **Token Exchange**: Kambrium exchanges code for access/refresh tokens
+5. **Secure Storage**: Kambrium stores tokens for API access
+
+### Supported Providers
+
+Kambrium supports OAuth for various SaaS providers:
+
+- **Pipedrive**: CRM data access
+- **Gmail**: Email management
+- **Additional providers**: Check `/mcp-servers` endpoint for current list
+
+### Required Scopes
+
+Each provider has predefined scopes that Kambrium requests:
+
+```json
+{
+  "pipedrive": ["read", "write", "admin"],
+  "gmail": ["gmail.readonly", "gmail.modify"]
+}
+```
+
+## Security Considerations
+
+### Secure Token Storage
+
+- OAuth tokens are encrypted and stored securely by Kambrium
+- Tokens are automatically refreshed when they expire
+- Users can revoke access at any time
+
+### State Parameters
+
+Kambrium uses cryptographically secure state parameters to prevent CSRF attacks:
+
+```python
+# State parameters include:
+{
+  "mcp_server_access_id": 123,
+  "session_id": "uuid-v4",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+### PKCE Support
+
+For providers that support it, Kambrium uses PKCE (Proof Key for Code Exchange) for additional security.
+
+## Error Handling
+
+### OAuth Errors
+
+Handle common OAuth errors in your application:
+
+```javascript
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "oauth_error") {
+    switch (event.data.error) {
+      case "access_denied":
+        alert("User denied access to their account");
+        break;
+      case "invalid_request":
+        alert("Invalid OAuth configuration");
+        break;
+      default:
+        alert("OAuth authentication failed");
+    }
+  }
+});
+```
+
+### API Errors
+
+When creating OAuth connections:
+
+```python
+try:
+    response = requests.post(url, json=data, headers=headers)
+    response.raise_for_status()
+except requests.exceptions.HTTPError as e:
+    if response.status_code == 422:
+        print("Invalid request data:", response.json())
+    elif response.status_code == 401:
+        print("Invalid management token")
+    else:
+        print(f"API error: {e}")
+```
+
+## Testing OAuth Integration
+
+### Using Test Providers
+
+For development, use test OAuth providers or sandbox environments when available.
+
+### Handling Callbacks
+
+Ensure your application properly handles OAuth callbacks:
+
+```python
+# Example callback handling
+@app.route('/oauth/callback')
+def oauth_callback():
+    code = request.args.get('code')
+    state = request.args.get('state')
+    error = request.args.get('error')
+
+    if error:
+        return f"OAuth error: {error}", 400
+
+    if not code or not state:
+        return "Missing OAuth parameters", 400
+
+    # Process successful OAuth
+    return "OAuth completed successfully"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Management API"
+    icon="server"
+    href="/api-reference/mcp-servers/create"
+  >
+    Complete API reference for MCP server creation
+  </Card>
+  <Card
+    title="MCP Server Authentication"
+    icon="shield-check"
+    href="/authentication/mcp-server"
+  >
+    Learn about MCP protocol authentication
+  </Card>
+  <Card
+    title="Authentication Overview"
+    icon="key"
+    href="/authentication/introduction"
+  >
+    Understanding Kambrium's authentication architecture
+  </Card>
+  <Card
+    title="Integration Examples"
+    icon="code"
+    href="/authentication/integrations"
+  >
+    Practical OAuth integration examples
+  </Card>
+</CardGroup>

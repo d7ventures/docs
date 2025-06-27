@@ -53,7 +53,7 @@
           "authentication/management-api",
           "authentication/mcp-server",
           "authentication/integrations",
-          "authentication/white-labeling"
+          "authentication/oauth-integration"
         ]
       },
       {
