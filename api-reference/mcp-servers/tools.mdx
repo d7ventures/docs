@@ -1,4 +1,250 @@
 ---
 title: "Get MCP Server Tools"
-openapi: "GET /api/v1/mcp-servers/{server_type}/tools"
+openapi: "GET /api/v1/mcp-servers/{server_id}/tools"
+description: "Retrieve all tools/endpoints available for a specific MCP server connection."
 ---
+
+## Overview
+
+This endpoint returns all tools (functions) available for a specific MCP server connection. Tools are returned in MCP-compliant format with proper JSON schema definitions for each tool's input parameters.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.read` scope
+- **Existing Connection** - Valid MCP server connection ID
+
+## Request
+
+```bash
+GET /api/v1/mcp-servers/{server_id}/tools
+```
+
+### Path Parameters
+
+| Parameter   | Type    | Required | Description                  |
+| ----------- | ------- | -------- | ---------------------------- |
+| `server_id` | integer | Yes      | The MCP server connection ID |
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": {
+    "tools": [
+      {
+        "name": "get_deals",
+        "description": "Retrieve deals from Pipedrive CRM",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Number of deals to retrieve"
+            },
+            "status": {
+              "type": "string",
+              "description": "Deal status filter"
+            }
+          },
+          "required": ["limit"]
+        },
+        "annotations": {
+          "audience": ["user"],
+          "requiresAuth": true
+        }
+      }
+    ],
+    "total_count": 1,
+    "mcp_server_id": 123
+  }
+}
+```
+
+### Response Fields
+
+| Field                | Type    | Description                             |
+| -------------------- | ------- | --------------------------------------- |
+| `success`            | boolean | Whether the request was successful      |
+| `data.tools`         | array   | Array of MCP-compliant tool definitions |
+| `data.total_count`   | integer | Total number of tools available         |
+| `data.mcp_server_id` | integer | The MCP server ID these tools belong to |
+
+### Tool Object Fields
+
+Each tool in the `tools` array contains:
+
+| Field         | Type   | Description                                            |
+| ------------- | ------ | ------------------------------------------------------ |
+| `name`        | string | Unique identifier for the tool                         |
+| `description` | string | Human-readable description of the tool's functionality |
+| `inputSchema` | object | JSON Schema defining the tool's input parameters       |
+| `annotations` | object | Additional metadata about the tool                     |
+
+### Pagination (Optional)
+
+For large tool counts, responses may include pagination fields:
+
+```json
+{
+  "success": true,
+  "data": {
+    "tools": [...],
+    "total_count": 150,
+    "mcp_server_id": 123,
+    "limit": 50,
+    "offset": 0,
+    "has_more": true
+  }
+}
+```
+
+## Error Responses
+
+### Connection Not Found (404)
+
+```json
+{
+  "detail": "MCP server connection not found"
+}
+```
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to access this connection."
+}
+```
+
+## Examples
+
+### Get Tools for Pipedrive Connection
+
+```bash
+curl -X GET "https://api.kambrium.com/api/v1/mcp-servers/123/tools" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "tools": [
+      {
+        "name": "get_deals",
+        "description": "Retrieve deals from Pipedrive CRM",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Number of deals to retrieve",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "status": {
+              "type": "string",
+              "description": "Deal status filter",
+              "enum": ["open", "won", "lost", "deleted"]
+            },
+            "user_id": {
+              "type": "integer",
+              "description": "Filter by user ID"
+            }
+          },
+          "required": ["limit"]
+        },
+        "annotations": {
+          "audience": ["user"],
+          "requiresAuth": true,
+          "category": "crm"
+        }
+      },
+      {
+        "name": "create_person",
+        "description": "Create a new person in Pipedrive",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Person's name"
+            },
+            "email": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "email"
+              },
+              "description": "Email addresses"
+            },
+            "phone": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Phone numbers"
+            }
+          },
+          "required": ["name"]
+        },
+        "annotations": {
+          "audience": ["user"],
+          "requiresAuth": true,
+          "category": "crm"
+        }
+      }
+    ],
+    "total_count": 2,
+    "mcp_server_id": 123
+  }
+}
+```
+
+## Implementation Notes
+
+### Tool Discovery
+
+- Tools are discovered from both local MCP server definitions and external API endpoints
+- Tools are filtered based on user's OAuth permissions and connection access level
+- Disabled tools are excluded from the response
+
+### MCP Compliance
+
+- All tools follow MCP specification format
+- Input schemas use JSON Schema Draft 7
+- Annotations provide additional metadata for tool categorization
+
+### Performance
+
+- Results may be paginated for connections with many tools
+- Tools are cached per connection for improved response times
+- Database queries are optimized for fast retrieval
+
+## Related Endpoints
+
+- [Create MCP Server Connection](/api-reference/mcp-servers/create) - Create a new connection
+- [Update MCP Server Connection](/api-reference/mcp-servers/update) - Update connection settings
+- [Get MCP Server Connection](/api-reference/mcp-servers/get) - Get connection details
+- [Disable Tools](/api-reference/mcp-servers/disable-tools) - Disable specific tools

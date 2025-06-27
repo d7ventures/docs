@@ -1,4 +1,166 @@
 ---
-title: "Create MCP Server"
+title: "Create MCP Server Connection"
 openapi: "POST /api/v1/mcp-servers"
+description: "Create a new MCP server connection instance."
 ---
+
+## Overview
+
+This endpoint creates a new MCP server connection, allowing users to connect to supported integrations like Pipedrive, HubSpot, Salesforce, and others.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.write` scope
+- **Integration Support** - The integration must be available and supported
+
+## Request
+
+```bash
+POST /api/v1/mcp-servers
+```
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+### Request Body
+
+```json
+{
+  "mcp_server": "pipedrive",
+  "access_type": "write",
+  "api_key": "your-api-key-here"
+}
+```
+
+### Request Fields
+
+| Field         | Type   | Required | Description                                     |
+| ------------- | ------ | -------- | ----------------------------------------------- |
+| `mcp_server`  | string | Yes      | Integration name (e.g., "pipedrive", "hubspot") |
+| `access_type` | string | Yes      | Access level: "read" or "write"                 |
+| `api_key`     | string | Yes      | API key for the integration                     |
+
+### Access Types
+
+- **`read`** - Read-only access to integration data
+- **`write`** - Full read/write access to integration data
+
+## Response
+
+### Success Response (201 Created)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "mcp_server": "pipedrive",
+    "access_type": "write",
+    "agent_enabled": true,
+    "mcp_server_access_status": "Active",
+    "mcp_server_connection_type": "API",
+    "api_key_verification_status": "Verified",
+    "created_at": "2025-06-27T10:30:00Z",
+    "updated_at": "2025-06-27T10:30:00Z"
+  }
+}
+```
+
+### Response Fields
+
+| Field                              | Type    | Description                          |
+| ---------------------------------- | ------- | ------------------------------------ |
+| `success`                          | boolean | Whether the request was successful   |
+| `data.id`                          | integer | Unique identifier for the connection |
+| `data.mcp_server`                  | string  | The integration name                 |
+| `data.access_type`                 | string  | The access level granted             |
+| `data.agent_enabled`               | boolean | Whether the connection is active     |
+| `data.mcp_server_access_status`    | string  | Connection status                    |
+| `data.mcp_server_connection_type`  | string  | Type of connection                   |
+| `data.api_key_verification_status` | string  | API key validation status            |
+
+## Error Responses
+
+### Bad Request (400)
+
+```json
+{
+  "error": "Invalid integration name: invalid_server"
+}
+```
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to create connections."
+}
+```
+
+## Examples
+
+### Create Pipedrive Connection
+
+```bash
+curl -X POST "https://api.kambrium.com/api/v1/mcp-servers" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcp_server": "pipedrive",
+    "access_type": "write",
+    "api_key": "your-pipedrive-api-key"
+  }'
+```
+
+### Create HubSpot Connection (Read-only)
+
+```bash
+curl -X POST "https://api.kambrium.com/api/v1/mcp-servers" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mcp_server": "hubspot",
+    "access_type": "read",
+    "api_key": "your-hubspot-api-key"
+  }'
+```
+
+## Implementation Notes
+
+### Automatic Configuration
+
+- `mcp_server_access_status` is automatically set to "Active"
+- `mcp_server_connection_type` is automatically set to "API"
+- `api_key_verification_status` is automatically verified during creation
+- `agent_enabled` is automatically set to `true`
+
+### OAuth Client Registration
+
+- An OAuth2 client is automatically created for the connection
+- OAuth credentials are generated and associated with the connection
+- This enables secure tool execution with proper scoping
+
+### Validation
+
+- API keys are validated against the target integration
+- Integration availability is checked before creation
+- User permissions are verified for the requested access type
+
+## Related Endpoints
+
+- [Get Available Integrations](/api-reference/mcp-servers/available) - List available integrations
+- [Get Connection Details](/api-reference/mcp-servers/get) - Get connection information
+- [Update Connection](/api-reference/mcp-servers/update) - Modify connection settings
+- [Get Connection Tools](/api-reference/mcp-servers/tools) - List available tools

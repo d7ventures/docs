@@ -1,4 +1,159 @@
 ---
-title: "Get MCP Servers"
+title: "Get Available MCP Servers"
 openapi: "GET /api/v1/mcp-servers/available"
+description: "Retrieve all available MCP server types that can be instantiated."
 ---
+
+## Overview
+
+This endpoint returns all available MCP server integrations that users can connect to. It provides information about each integration including the number of available tools.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.read` scope
+
+## Request
+
+```bash
+GET /api/v1/mcp-servers/available
+```
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "name": "pipedrive",
+      "description": "Pipedrive CRM integration with deal and contact management",
+      "number_of_tools": 15
+    },
+    {
+      "name": "hubspot",
+      "description": "HubSpot CRM and marketing automation platform",
+      "number_of_tools": 23
+    },
+    {
+      "name": "salesforce",
+      "description": null,
+      "number_of_tools": 8
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field     | Type    | Description                        |
+| --------- | ------- | ---------------------------------- |
+| `success` | boolean | Whether the request was successful |
+| `data`    | array   | Array of available integrations    |
+
+### Integration Object Fields
+
+Each integration in the `data` array contains:
+
+| Field             | Type        | Description                                   |
+| ----------------- | ----------- | --------------------------------------------- |
+| `name`            | string      | Unique identifier for the integration         |
+| `description`     | string/null | Human-readable description of the integration |
+| `number_of_tools` | integer     | Number of tools available in this integration |
+
+## Error Responses
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to view available integrations."
+}
+```
+
+## Examples
+
+### Get Available Integrations
+
+```bash
+curl -X GET "https://api.kambrium.com/api/v1/mcp-servers/available" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "name": "pipedrive",
+      "description": "Pipedrive CRM integration with deal and contact management",
+      "number_of_tools": 15
+    },
+    {
+      "name": "hubspot",
+      "description": "HubSpot CRM and marketing automation platform",
+      "number_of_tools": 23
+    },
+    {
+      "name": "salesforce",
+      "description": "Salesforce CRM and sales cloud platform",
+      "number_of_tools": 18
+    },
+    {
+      "name": "slack",
+      "description": "Slack team communication and workflow integration",
+      "number_of_tools": 12
+    },
+    {
+      "name": "notion",
+      "description": "Notion workspace and knowledge management",
+      "number_of_tools": 9
+    }
+  ]
+}
+```
+
+## Implementation Notes
+
+### Integration Discovery
+
+- Integrations are loaded from the main database
+- Only active and supported integrations are returned
+- Tool counts are calculated dynamically
+
+### Tool Counting
+
+- Includes both local MCP server tools and external API endpoints
+- Only publicly available tools are counted
+- Tool counts may vary based on integration configuration
+
+### Caching
+
+- Results are cached for improved performance
+- Cache is invalidated when new integrations are added
+- Fresh tool counts are calculated periodically
+
+## Related Endpoints
+
+- [Create MCP Server Connection](/api-reference/mcp-servers/create) - Create a connection to an integration
+- [Get User Connections](/api-reference/mcp-servers/get) - Get user's existing connections
+- [Get Integration Tools](/api-reference/mcp-servers/tools) - Get tools for a specific connection
