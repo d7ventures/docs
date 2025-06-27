@@ -1,4 +1,156 @@
 ---
-title: "Get MCP Server"
+title: "Get MCP Server Connection"
 openapi: "GET /api/v1/mcp-servers/{server_id}"
+description: "Retrieve details of a specific MCP server connection."
 ---
+
+## Overview
+
+This endpoint retrieves detailed information about a specific MCP server connection, including configuration, status, and metadata.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.read` scope
+- **Existing Connection** - Valid MCP server connection ID
+
+## Request
+
+```bash
+GET /api/v1/mcp-servers/{server_id}
+```
+
+### Path Parameters
+
+| Parameter   | Type    | Required | Description                  |
+| ----------- | ------- | -------- | ---------------------------- |
+| `server_id` | integer | Yes      | The MCP server connection ID |
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "mcp_server_name": "Pipedrive",
+    "api_key_verification_status": "verified",
+    "oauth2_client_id": "client_abc123",
+    "oauth2_scopes": ["mcp.read", "mcp.write"],
+    "agent_enabled": true,
+    "disabled_tools": [],
+    "created_at": "2025-06-27T10:30:00Z"
+  }
+}
+```
+
+### Response Fields
+
+| Field                              | Type    | Description                                                 |
+| ---------------------------------- | ------- | ----------------------------------------------------------- |
+| `success`                          | boolean | Whether the request was successful                          |
+| `data.id`                          | integer | Unique identifier for the connection                        |
+| `data.mcp_server_name`             | string  | Human-readable name of the integration                      |
+| `data.api_key_verification_status` | string  | API key validation status ("pending", "verified", "failed") |
+| `data.oauth2_client_id`            | string  | OAuth2 client ID for MCP server communication               |
+| `data.oauth2_scopes`               | array   | OAuth2 scopes granted for this connection                   |
+| `data.agent_enabled`               | boolean | Whether the connection is enabled for agent use             |
+| `data.disabled_tools`              | array   | List of disabled tool IDs                                   |
+| `data.created_at`                  | string  | ISO timestamp when connection was created                   |
+
+## Error Responses
+
+### Connection Not Found (404)
+
+```json
+{
+  "detail": "MCP server 123 not found or not accessible"
+}
+```
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to access this connection."
+}
+```
+
+### Internal Server Error (500)
+
+```json
+{
+  "detail": "Failed to get MCP server details: database error"
+}
+```
+
+## Examples
+
+### Get Connection Details
+
+```bash
+curl -X GET "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "mcp_server_name": "Pipedrive",
+    "api_key_verification_status": "verified",
+    "oauth2_client_id": "client_abc123",
+    "oauth2_scopes": ["mcp.read", "mcp.write"],
+    "agent_enabled": true,
+    "disabled_tools": [],
+    "created_at": "2025-06-27T10:30:00Z"
+  }
+}
+```
+
+## Implementation Notes
+
+### Access Control
+
+- Users can only access their own connections
+- Connection ownership is verified against the authenticated user
+- Admin users may have broader access (implementation-dependent)
+
+### Data Privacy
+
+- Sensitive information like API keys are not returned in responses
+- Only metadata and configuration are included
+- OAuth client secrets are never exposed
+
+### Status Information
+
+- API key verification status reflects the current state
+- OAuth scopes show the permissions granted to this connection
+- Agent enabled status indicates if the connection is active
+
+## Related Endpoints
+
+- [List User Connections](/api-reference/mcp-servers/list) - Get all user connections
+- [Update Connection](/api-reference/mcp-servers/update) - Modify connection settings
+- [Delete Connection](/api-reference/mcp-servers/delete) - Delete a connection
+- [Get Connection Tools](/api-reference/mcp-servers/tools) - List available tools

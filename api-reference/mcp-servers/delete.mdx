@@ -1,4 +1,141 @@
 ---
-title: "Delete MCP Server"
+title: "Delete MCP Server Connection"
 openapi: "DELETE /api/v1/mcp-servers/{server_id}"
+description: "Delete an existing MCP server connection."
 ---
+
+## Overview
+
+This endpoint permanently deletes an MCP server connection, removing all associated data and configurations. This action cannot be undone.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.write` scope
+- **Existing Connection** - Valid MCP server connection ID
+
+## Request
+
+```bash
+DELETE /api/v1/mcp-servers/{server_id}
+```
+
+### Path Parameters
+
+| Parameter   | Type    | Required | Description                  |
+| ----------- | ------- | -------- | ---------------------------- |
+| `server_id` | integer | Yes      | The MCP server connection ID |
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "MCP server connection deleted successfully"
+}
+```
+
+### Response Fields
+
+| Field     | Type    | Description                        |
+| --------- | ------- | ---------------------------------- |
+| `success` | boolean | Whether the request was successful |
+| `data`    | null    | Always null for delete operations  |
+| `message` | string  | Confirmation message               |
+
+## Error Responses
+
+### Connection Not Found (404)
+
+```json
+{
+  "detail": "MCP server 123 not found or not accessible"
+}
+```
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to delete this connection."
+}
+```
+
+### Internal Server Error (500)
+
+```json
+{
+  "detail": "Failed to delete MCP server: database error"
+}
+```
+
+## Examples
+
+### Delete Connection
+
+```bash
+curl -X DELETE "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "MCP server connection deleted successfully"
+}
+```
+
+## Implementation Notes
+
+### Permanent Deletion
+
+- **This action is irreversible** - deleted connections cannot be recovered
+- All associated data is permanently removed from the database
+- OAuth credentials are revoked and cleaned up
+
+### Cascading Effects
+
+- All tool access records are removed
+- OAuth client credentials are deleted
+- Connection history is purged
+- Any active sessions using this connection are invalidated
+
+### Access Control
+
+- Users can only delete their own connections
+- Connection ownership is verified before deletion
+- Admin users may have broader deletion permissions
+
+### Verification
+
+- After deletion, attempts to access the connection will return 404
+- The connection ID becomes invalid and cannot be reused
+- All related resources are cleaned up
+
+## Related Endpoints
+
+- [Get Connection Details](/api-reference/mcp-servers/get) - Get connection information before deletion
+- [Update Connection](/api-reference/mcp-servers/update) - Modify connection instead of deleting
+- [Create Connection](/api-reference/mcp-servers/create) - Create a new connection
+- [List User Connections](/api-reference/mcp-servers/list) - View remaining connections

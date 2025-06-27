@@ -72,12 +72,12 @@
         "icon": "server",
         "pages": [
           "api-reference/mcp-servers/available",
-          "api-reference/mcp-servers/tools",
-          "api-reference/mcp-servers/disable-tools",
+          "api-reference/mcp-servers/list",
           "api-reference/mcp-servers/create",
           "api-reference/mcp-servers/get",
           "api-reference/mcp-servers/update",
-          "api-reference/mcp-servers/delete"
+          "api-reference/mcp-servers/delete",
+          "api-reference/mcp-servers/tools"
         ]
       },
       {

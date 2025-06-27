@@ -1,0 +1,188 @@
+---
+title: "List User Connections"
+openapi: "GET /api/v1/mcp-servers"
+description: "Retrieve all MCP server connections for the authenticated user."
+---
+
+## Overview
+
+This endpoint returns all MCP server connections that belong to the authenticated user, providing an overview of their configured integrations.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.read` scope
+
+## Request
+
+```bash
+GET /api/v1/mcp-servers
+```
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "mcp_server_name": "Pipedrive",
+      "api_key_verification_status": "verified",
+      "oauth2_client_id": "client_abc123",
+      "oauth2_scopes": ["mcp.read", "mcp.write"],
+      "agent_enabled": true,
+      "disabled_tools": [],
+      "created_at": "2025-06-27T10:30:00Z"
+    },
+    {
+      "id": 124,
+      "mcp_server_name": "HubSpot",
+      "api_key_verification_status": "pending",
+      "oauth2_client_id": "client_def456",
+      "oauth2_scopes": ["mcp.read"],
+      "agent_enabled": false,
+      "disabled_tools": [],
+      "created_at": "2025-06-27T11:15:00Z"
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field     | Type    | Description                        |
+| --------- | ------- | ---------------------------------- |
+| `success` | boolean | Whether the request was successful |
+| `data`    | array   | Array of user's connections        |
+
+### Connection Object Fields
+
+Each connection in the `data` array contains:
+
+| Field                         | Type    | Description                                                 |
+| ----------------------------- | ------- | ----------------------------------------------------------- |
+| `id`                          | integer | Unique identifier for the connection                        |
+| `mcp_server_name`             | string  | Human-readable name of the integration                      |
+| `api_key_verification_status` | string  | API key validation status ("pending", "verified", "failed") |
+| `oauth2_client_id`            | string  | OAuth2 client ID for MCP server communication               |
+| `oauth2_scopes`               | array   | OAuth2 scopes granted for this connection                   |
+| `agent_enabled`               | boolean | Whether the connection is enabled for agent use             |
+| `disabled_tools`              | array   | List of disabled tool IDs                                   |
+| `created_at`                  | string  | ISO timestamp when connection was created                   |
+
+## Error Responses
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to view connections."
+}
+```
+
+### Internal Server Error (500)
+
+```json
+{
+  "detail": "Failed to list MCP servers: database error"
+}
+```
+
+## Examples
+
+### Get All User Connections
+
+```bash
+curl -X GET "https://api.kambrium.com/api/v1/mcp-servers" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json"
+```
+
+### Response with Multiple Connections
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 123,
+      "mcp_server_name": "Pipedrive",
+      "api_key_verification_status": "verified",
+      "oauth2_client_id": "client_abc123",
+      "oauth2_scopes": ["mcp.read", "mcp.write"],
+      "agent_enabled": true,
+      "disabled_tools": [],
+      "created_at": "2025-06-27T10:30:00Z"
+    },
+    {
+      "id": 124,
+      "mcp_server_name": "HubSpot",
+      "api_key_verification_status": "failed",
+      "oauth2_client_id": "client_def456",
+      "oauth2_scopes": ["mcp.read"],
+      "agent_enabled": false,
+      "disabled_tools": [101, 102],
+      "created_at": "2025-06-27T11:15:00Z"
+    }
+  ]
+}
+```
+
+### Response with No Connections
+
+```json
+{
+  "success": true,
+  "data": []
+}
+```
+
+## Implementation Notes
+
+### Access Control
+
+- Users can only see their own connections
+- Connection ownership is verified against the authenticated user
+- Admin users may have broader access (implementation-dependent)
+
+### Data Privacy
+
+- Sensitive information like API keys are not returned
+- Only metadata and configuration are included
+- OAuth client secrets are never exposed
+
+### Connection Status
+
+- `api_key_verification_status` reflects the current validation state
+- `agent_enabled` indicates if the connection is active for agent use
+- `disabled_tools` shows which tools have been individually disabled
+
+### Empty Results
+
+- New users will receive an empty array
+- This is a valid response and not an error condition
+- The response format remains consistent
+
+## Related Endpoints
+
+- [Get Available Integrations](/api-reference/mcp-servers/available) - List available integrations
+- [Create Connection](/api-reference/mcp-servers/create) - Create a new connection
+- [Get Connection Details](/api-reference/mcp-servers/get) - Get specific connection information
+- [Get Connection Tools](/api-reference/mcp-servers/tools) - List tools for a connection

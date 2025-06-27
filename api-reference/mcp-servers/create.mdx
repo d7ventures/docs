@@ -41,13 +41,14 @@ POST /api/v1/mcp-servers
 | Field         | Type   | Required | Description                                     |
 | ------------- | ------ | -------- | ----------------------------------------------- |
 | `mcp_server`  | string | Yes      | Integration name (e.g., "pipedrive", "hubspot") |
-| `access_type` | string | Yes      | Access level: "read" or "write"                 |
+| `access_type` | string | Yes      | Access level: "read", "write", or "individual"  |
 | `api_key`     | string | Yes      | API key for the integration                     |
 
 ### Access Types
 
 - **`read`** - Read-only access to integration data
 - **`write`** - Full read/write access to integration data
+- **`individual`** - Custom access with specific tool selections
 
 ## Response
 
@@ -58,30 +59,30 @@ POST /api/v1/mcp-servers
   "success": true,
   "data": {
     "id": 123,
-    "mcp_server": "pipedrive",
-    "access_type": "write",
+    "mcp_server_name": "Pipedrive",
+    "api_key_verification_status": "pending",
+    "oauth2_client_id": "client_abc123",
+    "oauth2_scopes": ["mcp.read", "mcp.write"],
     "agent_enabled": true,
-    "mcp_server_access_status": "Active",
-    "mcp_server_connection_type": "API",
-    "api_key_verification_status": "Verified",
-    "created_at": "2025-06-27T10:30:00Z",
-    "updated_at": "2025-06-27T10:30:00Z"
+    "disabled_tools": [],
+    "created_at": "2025-06-27T10:30:00Z"
   }
 }
 ```
 
 ### Response Fields
 
-| Field                              | Type    | Description                          |
-| ---------------------------------- | ------- | ------------------------------------ |
-| `success`                          | boolean | Whether the request was successful   |
-| `data.id`                          | integer | Unique identifier for the connection |
-| `data.mcp_server`                  | string  | The integration name                 |
-| `data.access_type`                 | string  | The access level granted             |
-| `data.agent_enabled`               | boolean | Whether the connection is active     |
-| `data.mcp_server_access_status`    | string  | Connection status                    |
-| `data.mcp_server_connection_type`  | string  | Type of connection                   |
-| `data.api_key_verification_status` | string  | API key validation status            |
+| Field                              | Type    | Description                                                 |
+| ---------------------------------- | ------- | ----------------------------------------------------------- |
+| `success`                          | boolean | Whether the request was successful                          |
+| `data.id`                          | integer | Unique identifier for the connection                        |
+| `data.mcp_server_name`             | string  | Human-readable name of the integration                      |
+| `data.api_key_verification_status` | string  | API key validation status ("pending", "verified", "failed") |
+| `data.oauth2_client_id`            | string  | OAuth2 client ID for MCP server communication               |
+| `data.oauth2_scopes`               | array   | OAuth2 scopes granted for this connection                   |
+| `data.agent_enabled`               | boolean | Whether the connection is enabled for agent use             |
+| `data.disabled_tools`              | array   | List of disabled tool IDs (empty for non-individual access) |
+| `data.created_at`                  | string  | ISO timestamp when connection was created                   |
 
 ## Error Responses
 
@@ -89,7 +90,7 @@ POST /api/v1/mcp-servers
 
 ```json
 {
-  "error": "Invalid integration name: invalid_server"
+  "detail": "Invalid MCP server or access type specified"
 }
 ```
 
@@ -109,6 +110,14 @@ POST /api/v1/mcp-servers
 }
 ```
 
+### Internal Server Error (500)
+
+```json
+{
+  "detail": "Failed to create connection: database error"
+}
+```
+
 ## Examples
 
 ### Create Pipedrive Connection
@@ -122,6 +131,24 @@ curl -X POST "https://api.kambrium.com/api/v1/mcp-servers" \
     "access_type": "write",
     "api_key": "your-pipedrive-api-key"
   }'
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "mcp_server_name": "Pipedrive",
+    "api_key_verification_status": "pending",
+    "oauth2_client_id": "client_abc123",
+    "oauth2_scopes": ["mcp.read", "mcp.write"],
+    "agent_enabled": true,
+    "disabled_tools": [],
+    "created_at": "2025-06-27T10:30:00Z"
+  }
+}
 ```
 
 ### Create HubSpot Connection (Read-only)
@@ -141,10 +168,10 @@ curl -X POST "https://api.kambrium.com/api/v1/mcp-servers" \
 
 ### Automatic Configuration
 
-- `mcp_server_access_status` is automatically set to "Active"
-- `mcp_server_connection_type` is automatically set to "API"
-- `api_key_verification_status` is automatically verified during creation
 - `agent_enabled` is automatically set to `true`
+- `api_key_verification_status` starts as "pending" and is verified asynchronously
+- `oauth2_client_id` and `oauth2_scopes` are automatically generated
+- `disabled_tools` array is empty for "read" and "write" access types
 
 ### OAuth Client Registration
 
@@ -154,9 +181,15 @@ curl -X POST "https://api.kambrium.com/api/v1/mcp-servers" \
 
 ### Validation
 
-- API keys are validated against the target integration
-- Integration availability is checked before creation
-- User permissions are verified for the requested access type
+- Integration name is validated against available integrations
+- Access type is validated against supported values
+- API key format is validated before storage
+
+### Database Storage
+
+- Connection is stored in the web database
+- Database IDs are mapped from user-friendly names
+- All fields are properly validated before creation
 
 ## Related Endpoints
 

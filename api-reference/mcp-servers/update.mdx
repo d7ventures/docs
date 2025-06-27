@@ -1,4 +1,214 @@
 ---
-title: "Update MCP Server"
+title: "Update MCP Server Connection"
 openapi: "PUT /api/v1/mcp-servers/{server_id}"
+description: "Update an existing MCP server connection."
 ---
+
+## Overview
+
+This endpoint updates an existing MCP server connection, allowing users to modify settings like access type, API key, and enable/disable status.
+
+## Prerequisites
+
+- **Valid OAuth Token** - Bearer token with `mgmt.write` scope
+- **Existing Connection** - Valid MCP server connection ID
+
+## Request
+
+```bash
+PUT /api/v1/mcp-servers/{server_id}
+```
+
+### Path Parameters
+
+| Parameter   | Type    | Required | Description                  |
+| ----------- | ------- | -------- | ---------------------------- |
+| `server_id` | integer | Yes      | The MCP server connection ID |
+
+### Headers
+
+| Header          | Type   | Required | Description                            |
+| --------------- | ------ | -------- | -------------------------------------- |
+| `Authorization` | string | Yes      | Bearer token from OAuth authentication |
+| `Content-Type`  | string | Yes      | Must be `application/json`             |
+
+### Request Body
+
+```json
+{
+  "agent_enabled": false,
+  "access_type": "read",
+  "api_key": "updated-api-key"
+}
+```
+
+### Request Fields
+
+| Field           | Type    | Required | Description                                     |
+| --------------- | ------- | -------- | ----------------------------------------------- |
+| `agent_enabled` | boolean | No       | Whether the connection is enabled for agent use |
+| `access_type`   | string  | No       | Access level: "read", "write", or "individual"  |
+| `api_key`       | string  | No       | Updated API key for the integration             |
+
+### Access Types
+
+- **`read`** - Read-only access to integration data
+- **`write`** - Full read/write access to integration data
+- **`individual`** - Custom access with specific tool selections
+
+## Response
+
+### Success Response (200 OK)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "mcp_server_name": "Pipedrive",
+    "api_key_verification_status": "pending",
+    "oauth2_client_id": "client_abc123",
+    "oauth2_scopes": ["mcp.read"],
+    "agent_enabled": false,
+    "disabled_tools": [],
+    "created_at": "2025-06-27T10:30:00Z"
+  }
+}
+```
+
+### Response Fields
+
+| Field                              | Type    | Description                                     |
+| ---------------------------------- | ------- | ----------------------------------------------- |
+| `success`                          | boolean | Whether the request was successful              |
+| `data.id`                          | integer | Unique identifier for the connection            |
+| `data.mcp_server_name`             | string  | Human-readable name of the integration          |
+| `data.api_key_verification_status` | string  | API key validation status after update          |
+| `data.oauth2_client_id`            | string  | OAuth2 client ID for MCP server communication   |
+| `data.oauth2_scopes`               | array   | OAuth2 scopes granted for this connection       |
+| `data.agent_enabled`               | boolean | Whether the connection is enabled for agent use |
+| `data.disabled_tools`              | array   | List of disabled tool IDs                       |
+| `data.created_at`                  | string  | ISO timestamp when connection was created       |
+
+## Error Responses
+
+### Connection Not Found (404)
+
+```json
+{
+  "detail": "MCP server 123 not found or not accessible"
+}
+```
+
+### Bad Request (400)
+
+```json
+{
+  "detail": "Invalid access type specified"
+}
+```
+
+### Unauthorized (401)
+
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+### Forbidden (403)
+
+```json
+{
+  "detail": "You do not have permission to update this connection."
+}
+```
+
+### Internal Server Error (500)
+
+```json
+{
+  "detail": "Failed to update MCP server: database error"
+}
+```
+
+## Examples
+
+### Enable/Disable Connection
+
+```bash
+curl -X PUT "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_enabled": false
+  }'
+```
+
+### Update Access Type
+
+```bash
+curl -X PUT "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "access_type": "read"
+  }'
+```
+
+### Update API Key
+
+```bash
+curl -X PUT "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "api_key": "new-api-key-value"
+  }'
+```
+
+### Multiple Updates
+
+```bash
+curl -X PUT "https://api.kambrium.com/api/v1/mcp-servers/123" \
+  -H "Authorization: Bearer your_oauth_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agent_enabled": true,
+    "access_type": "write",
+    "api_key": "updated-api-key"
+  }'
+```
+
+## Implementation Notes
+
+### Partial Updates
+
+- Only provided fields are updated
+- Omitted fields retain their current values
+- Empty or null values are handled appropriately
+
+### API Key Verification
+
+- When `api_key` is updated, verification status resets to "pending"
+- API key is validated asynchronously against the target integration
+- Invalid API keys will be marked as "failed" after verification
+
+### Access Type Changes
+
+- Changing access type may affect OAuth scopes
+- Tool access permissions are updated accordingly
+- Some access type changes may require re-authentication
+
+### Database Persistence
+
+- All updates are immediately persisted to the database
+- Changes are validated before being applied
+- Database constraints are enforced
+
+## Related Endpoints
+
+- [Get Connection Details](/api-reference/mcp-servers/get) - Get current connection information
+- [Create Connection](/api-reference/mcp-servers/create) - Create a new connection
+- [Delete Connection](/api-reference/mcp-servers/delete) - Delete a connection
+- [Get Connection Tools](/api-reference/mcp-servers/tools) - List available tools
