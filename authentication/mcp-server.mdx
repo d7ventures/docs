@@ -67,95 +67,59 @@ Based on the Management API, the following scopes are used for MCP server access
 
 ## MCP Protocol Authentication
 
-### Initialize Connection
+### Session Initialization
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "init-12345",
-  "method": "initialize",
-  "params": {
-    "protocolVersion": "2025-03-26",
-    "capabilities": {
-      "roots": { "listChanged": true },
-      "sampling": {}
-    },
-    "clientInfo": {
-      "name": "test-client",
-      "version": "1.0.0"
-    }
-  }
-}
-```
-
-### Send Initialized Notification
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "notifications/initialized",
-  "params": {}
-}
-```
-
-### List Available Tools
+All MCP protocol operations require proper authentication headers:
 
 ```bash
 curl -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -H "Mcp-Session-Id: <session_id>" \
-  -d '{"jsonrpc": "2.0", "id": "tools-1", "method": "tools/list", "params": {}}' \
   https://mcp.kambrium.com/user_endpoint
 ```
 
-### List Available Resources
+### Authentication Flow
 
-```bash
-curl -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: <session_id>" \
-  -d '{"jsonrpc": "2.0", "id": "resources-1", "method": "resources/list", "params": {}}' \
-  https://mcp.kambrium.com/user_endpoint
+1. **Obtain Token**: Use OAuth 2.1 Client Credentials or PAT
+2. **Initialize Session**: Send `initialize` request with capabilities
+3. **Session Established**: Receive session ID in `Mcp-Session-Id` header
+4. **Send Notification**: Send `notifications/initialized`
+5. **Authenticated Requests**: Include both Bearer token and session ID in subsequent requests
+
+### Session Headers
+
+**Required headers for all MCP requests:**
+
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+Mcp-Session-Id: <session_id>
 ```
 
-### List Available Prompts
+### Token Validation
 
-```bash
-curl -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: <session_id>" \
-  -d '{"jsonrpc": "2.0", "id": "prompts-1", "method": "prompts/list", "params": {}}' \
-  https://mcp.kambrium.com/user_endpoint
-```
+MCP servers validate tokens on every request:
 
-### Execute Tool
-
-```bash
-curl -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -H "Mcp-Session-Id: <session_id>" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": "call-1",
-    "method": "tools/call",
-    "params": {
-      "name": "create_deal",
-      "arguments": {"title": "New Deal", "value": 1000}
-    }
-  }' \
-  https://mcp.kambrium.com/user_endpoint
-```
-
-## Authentication Flow
-
-1. **Initialize Session**: Send `initialize` request with capabilities
-2. **Session Established**: Receive session ID in `Mcp-Session-Id` header
-3. **Send Notification**: Send `notifications/initialized`
-4. **Make Requests**: Use session ID in subsequent MCP protocol requests
-
-All MCP protocol operations require proper OAuth token or PAT authentication with appropriate scopes.
+- **OAuth tokens**: Verified against OAuth provider and checked for expiration
+- **PAT tokens**: Validated against stored hash and scope permissions
+- **Session correlation**: Session ID must match authenticated user context
 
 ## Server-Specific Access
 
-**Tokens with mcp_server_id:** Access specific MCP server instance
+**Tokens with mcp_server_id:** Access specific MCP server instance  
 **Tokens without mcp_server_id:** Access all authorized MCP servers
+
+## Security Considerations
+
+### Token Lifecycle
+
+- OAuth tokens: 1-hour expiration, automatic refresh required
+- PAT tokens: Long-lived, manual rotation recommended
+- Session tokens: Temporary, tied to connection lifetime
+
+### Best Practices
+
+- Store tokens securely in application memory or credential vault
+- Implement token refresh logic for OAuth flows
+- Monitor authentication failures and rate limits
+- Use minimum required scopes for principle of least privilege

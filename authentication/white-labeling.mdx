@@ -181,7 +181,7 @@ All operations include proper attribution:
 
 ## Error Handling
 
-### Common Error Scenarios
+### OAuth Authentication Errors
 
 ```python
 try:
@@ -202,7 +202,7 @@ except KambriumAuthError as e:
         logger.error(f"Auth error: {e.message}")
 ```
 
-### OAuth Flow Error Recovery
+### OAuth Callback Error Handling
 
 ```javascript
 // Handle OAuth callback with error checking
@@ -221,116 +221,6 @@ app.get("/auth/callback", (req, res) => {
 
   // Process successful OAuth callback
   processOAuthCallback(code, state, res);
-});
-```
-
-## Integration Examples
-
-### React Application
-
-```jsx
-import { useState } from "react";
-import { KambriumClient } from "@kambrium/client";
-
-function SaaSConnection({ userId }) {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState("disconnected");
-
-  const connectPipedrive = async () => {
-    setIsConnecting(true);
-
-    try {
-      const server = await kambrium.mcp_servers.create({
-        provider: "pipedrive",
-        user_id: userId,
-        auth_method: "oauth",
-        white_label: {
-          brand_name: "Your App",
-          logo_url: "/your-logo.png",
-          primary_color: "#0066cc",
-        },
-      });
-
-      // Redirect to branded OAuth flow
-      window.location.href = server.oauth_url;
-    } catch (error) {
-      console.error("Connection failed:", error);
-      setConnectionStatus("error");
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  return (
-    <div className="saas-connection">
-      <h3>Connect Pipedrive</h3>
-      <button
-        onClick={connectPipedrive}
-        disabled={isConnecting}
-        className="connect-button"
-      >
-        {isConnecting ? "Connecting..." : "Connect Account"}
-      </button>
-    </div>
-  );
-}
-```
-
-### Express.js Backend
-
-```javascript
-const express = require("express");
-const { KambriumClient } = require("@kambrium/client");
-
-const app = express();
-const kambrium = new KambriumClient({ apiKey: process.env.KAMBRIUM_API_KEY });
-
-// Initiate OAuth flow
-app.post("/api/connect/:provider", async (req, res) => {
-  try {
-    const { provider } = req.params;
-    const { userId } = req.body;
-
-    const server = await kambrium.mcp_servers.create({
-      provider,
-      user_id: userId,
-      auth_method: "oauth",
-      white_label: {
-        brand_name: "Your Application",
-        logo_url: "https://yourapp.com/logo.png",
-        primary_color: "#0066cc",
-      },
-      redirect_url: "https://yourapp.com/auth/callback",
-    });
-
-    res.json({
-      oauth_url: server.oauth_url,
-      server_id: server.id,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Handle OAuth callback
-app.get("/auth/callback", async (req, res) => {
-  const { code, state, error } = req.query;
-
-  if (error) {
-    return res.redirect(`/dashboard?error=${error}`);
-  }
-
-  try {
-    // Complete OAuth flow
-    await kambrium.oauth.complete({
-      code,
-      state,
-    });
-
-    res.redirect("/dashboard?connected=true");
-  } catch (error) {
-    res.redirect(`/dashboard?error=oauth_failed`);
-  }
 });
 ```
 

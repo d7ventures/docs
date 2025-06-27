@@ -27,7 +27,7 @@ curl -X POST https://us-east-1clpqjbygz.auth.us-east-1.amazoncognito.com/oauth2/
 }
 ```
 
-**Usage:**
+**Using the token:**
 
 ```bash
 curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIs..." \
@@ -64,7 +64,7 @@ PAT tokens follow standard JWT structure with these key claims:
 }
 ```
 
-**Usage:**
+**Using PAT tokens:**
 
 ```bash
 curl -H "Authorization: Bearer <PAT_TOKEN>" \
@@ -77,31 +77,23 @@ curl -H "Authorization: Bearer <PAT_TOKEN>" \
 - **mgmt.write** - Create, update, and delete MCP server connections
 - **mgmt.admin** - Administrative operations and system management
 
-## Common Operations
+## Token Security Best Practices
 
-### Create MCP Server Connection
+### OAuth Token Lifecycle
 
-```bash
-curl -X POST https://api.kambrium.com/api/v1/mcp-servers \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "mcp_server": "pipedrive",
-    "access_type": "write",
-    "api_key": "user-api-key"
-  }'
-```
+- Tokens expire in 1 hour by default
+- Refresh tokens automatically before expiration
+- Store tokens securely in memory or secure storage
 
-### List User's MCP Server Connections
+### PAT Security
 
-```bash
-curl -H "Authorization: Bearer <token>" \
-  https://api.kambrium.com/api/v1/mcp-servers
-```
+- Rotate PATs regularly (recommended every 90 days)
+- Store PATs in secure credential management systems
+- Limit scope to minimum required permissions
+- Monitor PAT usage for anomalies
 
-### List Available MCP Servers
+### General Security
 
-```bash
-curl -H "Authorization: Bearer <token>" \
-  https://api.kambrium.com/api/v1/mcp-servers/available
-```
+- Always use HTTPS for token requests
+- Never log or expose tokens in application code
+- Implement proper error handling for authentication failures
