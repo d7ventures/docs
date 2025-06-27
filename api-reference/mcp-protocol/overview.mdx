@@ -1,114 +1,112 @@
 ---
 title: "Protocol Overview"
-description: "Understanding the Model Context Protocol (MCP) - a standardized way for AI systems to securely access external tools and data."
+description: "Understanding the Model Context Protocol (MCP) - an open protocol that enables seamless integration between LLM applications and external data sources and tools."
 ---
+
+<Info>**Protocol Revision**: 2025-06-18</Info>
+
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) is an open protocol that enables seamless integration between LLM applications and external data sources and tools. Whether you're building an AI-powered IDE, enhancing a chat interface, or creating custom AI workflows, MCP provides a standardized way to connect LLMs with the context they need.
 
 ## What is MCP?
 
-The **Model Context Protocol (MCP)** is an open protocol that enables secure, standardized communication between AI systems and external tools, data sources, and services.
+MCP provides a standardized way for applications to:
 
-MCP provides a **unified interface** for AI agents to:
+- Share contextual information with language models
+- Expose tools and capabilities to AI systems
+- Build composable integrations and workflows
 
-- Execute tools and functions
-- Access real-time data and resources
-- Use pre-built prompts and templates
-- Maintain secure, authenticated sessions
+The protocol uses [JSON-RPC](https://www.jsonrpc.org/) 2.0 messages to establish communication between:
 
-## Core Architecture
+- **Hosts**: LLM applications that initiate connections
+- **Clients**: Connectors within the host application
+- **Servers**: Services that provide context and capabilities
 
-### **JSON-RPC 2.0 Foundation**
+MCP takes some inspiration from the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/), which standardizes how to add support for programming languages across a whole ecosystem of development tools. In a similar way, MCP standardizes how to integrate additional context and tools into the ecosystem of AI applications.
 
-MCP is built on **JSON-RPC 2.0**, providing:
+## Key Details
 
-- **Single endpoint** per tenant: `POST /{tenant}/mcp`
-- **Method-based routing** using the `method` field
-- **Request correlation** via unique `id` fields
-- **Error handling** with standard JSON-RPC error codes
+### Base Protocol
 
-### **Session-Based Communication**
+- [JSON-RPC](https://www.jsonrpc.org/) 2.0 message format
+- Stateful connections with session management
+- Server and client capability negotiation
+- UTF-8 encoded messages
 
-MCP requires session initialization before use:
+### Server Features
 
-1. **Initialize**: Establish capabilities and configuration
-2. **Notify**: Send `notifications/initialized` to complete handshake
-3. **Use**: Execute methods like `tools/list`, `resources/read`
+Servers offer the following features to clients:
 
-## Core Primitives
+- **Resources**: Context and data, for the user or the AI model to use
+- **Prompts**: Templated messages and workflows for users
+- **Tools**: Functions for the AI model to execute
 
-MCP organizes functionality into three main primitives:
+### Client Features
 
-| Primitive     | Control Model          | Description                   | Examples                    |
-| ------------- | ---------------------- | ----------------------------- | --------------------------- |
-| **Tools**     | Model-controlled       | Functions that AI can execute | API calls, data processing  |
-| **Resources** | Application-controlled | Data/content for AI context   | Files, databases, documents |
-| **Prompts**   | User-controlled        | Templates for AI interactions | Slash commands, workflows   |
+Clients may offer the following features to servers:
 
-### **Tools**
+- **Sampling**: Server-initiated agentic behaviors and recursive LLM interactions
+- **Roots**: Server-initiated inquiries into URI or filesystem boundaries to operate in
+- **Elicitation**: Server-initiated requests for additional information from users
 
-Tools enable AI systems to take actions:
+### Additional Utilities
 
-```json
-{
-  "method": "tools/call",
-  "params": {
-    "name": "get_weather",
-    "arguments": { "location": "New York" }
-  }
-}
-```
+- **Ping**: Connection health monitoring
+- **Progress**: Progress tracking for long-running operations
+- **Cancellation**: Request cancellation mechanism
+- **Logging**: Structured log messages
+- **Pagination**: Cursor-based pagination for large result sets
 
-### **Resources**
+## Kambrium Implementation
 
-Resources provide contextual data:
+Kambrium's MCP server implements the complete MCP 2025-06-18 specification with the following specific features:
 
-```json
-{
-  "method": "resources/read",
-  "params": {
-    "uri": "crm://contacts/database"
-  }
-}
-```
+### Transport Support
 
-### **Prompts**
+- **HTTP Transport**: Complete Streamable HTTP implementation with POST/GET endpoints
+- **Multi-tenant Architecture**: Single server serves multiple tenants via `/{tenant}/mcp` routing
+- **Session Management**: Full `Mcp-Session-Id` header support for stateful connections
 
-Prompts offer reusable templates:
+### Authentication & Security
 
-```json
-{
-  "method": "prompts/get",
-  "params": {
-    "name": "code_review",
-    "arguments": { "code": "function hello() {...}" }
-  }
-}
-```
+- **OAuth 2.1**: Complete OAuth flow with AWS Cognito integration
+- **Personal Access Tokens (PATs)**: Direct token-based authentication
+- **Security Compliance**: DNS rebinding protection, origin validation, input sanitization
+
+### Core Capabilities
+
+Based on our test suite, Kambrium implements:
+
+- ✅ **JSON-RPC 2.0**: Complete protocol compliance including batch requests
+- ✅ **Lifecycle Management**: Initialization, capability negotiation, session management
+- ✅ **Tools**: Database-driven dynamic tools with user permissions
+- ✅ **Resources**: Static and dynamic resources with subscription support
+- ✅ **Prompts**: Template system with argument substitution
+- ✅ **Completions**: Argument autocompletion functionality
+- ✅ **Utilities**: Ping, progress tracking, cancellation, logging
 
 ## Protocol Flow
 
-### **1. Session Initialization**
+### 1. Session Initialization
 
 ```mermaid
 sequenceDiagram
-    Client->>Server: initialize
-    Server->>Client: capabilities + session_id
-    Client->>Server: notifications/initialized
-    Note over Client,Server: Session ready for use
+    participant Client
+    participant Server
+
+    Note over Client,Server: Initialization Phase
+    Client->>+Server: initialize request
+    Server-->>Client: initialize response + Mcp-Session-Id
+    Client--)Server: initialized notification
+
+    Note over Client,Server: Operation Phase
+    rect rgb(200, 220, 250)
+        note over Client,Server: Normal protocol operations
+    end
 ```
 
-### **2. Method Execution**
+### 2. Capability Negotiation
 
-```mermaid
-sequenceDiagram
-    Client->>Server: tools/list
-    Server->>Client: available tools
-    Client->>Server: tools/call
-    Server->>Client: execution result
-```
-
-## Capabilities Negotiation
-
-Servers advertise supported features during initialization:
+During initialization, the server advertises its supported capabilities:
 
 ```json
 {
@@ -116,40 +114,79 @@ Servers advertise supported features during initialization:
     "tools": { "listChanged": true },
     "resources": { "subscribe": true, "listChanged": true },
     "prompts": { "listChanged": true },
-    "logging": {}
+    "logging": {},
+    "completions": {}
   }
 }
 ```
 
-## Authentication & Security
+### 3. Method Execution
 
-MCP supports two authentication methods:
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
 
-- **OAuth 2.1**: Standard OAuth flow with scopes
-- **Personal Access Tokens (PATs)**: Direct token-based access
+    Client->>Server: tools/list
+    Server->>Client: available tools
+    Client->>Server: tools/call
+    Server->>Client: execution result
+```
 
-Required scopes:
+## Security and Trust & Safety
 
-- `mcp.read` - List tools, resources, prompts
-- `mcp.tools.execute` - Execute tools
-- `mcp.resources.read` - Read resource content
+MCP enables powerful capabilities through arbitrary data access and code execution paths. Kambrium implements these security principles:
 
-## Error Handling
+### Key Principles
 
-MCP uses standard JSON-RPC error codes:
+1. **User Consent and Control**
 
-| Code     | Meaning        | Usage                          |
-| -------- | -------------- | ------------------------------ |
-| `-32000` | Server error   | Authentication, session issues |
-| `-32001` | Not found      | Unknown tool/resource/prompt   |
-| `-32602` | Invalid params | Malformed request parameters   |
-| `-32603` | Internal error | Server-side processing errors  |
+   - Users must explicitly consent to and understand all data access and operations
+   - OAuth-based permission system for tool access
+   - Clear authentication and authorization flows
+
+2. **Data Privacy**
+
+   - Multi-tenant isolation ensures data separation
+   - OAuth scopes control access to specific capabilities
+   - User data protected with appropriate access controls
+
+3. **Tool Safety**
+   - Database-driven tool permissions per user
+   - OAuth scopes required for tool execution (`mcp.tools.execute`)
+   - Input validation and sanitization for all tool parameters
 
 ## Next Steps
 
-- **Learn about** [Session Management](./session-management)
-- **Understand** [Error Handling](./error-handling)
-- **Explore** specific methods:
-  - [Tools](../mcp-methods/tools-list)
-  - [Resources](../mcp-methods/resources-list)
-  - [Prompts](../mcp-methods/prompts-list)
+Explore the detailed protocol components:
+
+<CardGroup cols={3}>
+  <Card
+    title="Base Protocol"
+    icon="code"
+    href="/api-reference/mcp-protocol/base-protocol"
+  />
+  <Card
+    title="Lifecycle"
+    icon="refresh"
+    href="/api-reference/mcp-protocol/lifecycle"
+  />
+  <Card
+    title="Transports"
+    icon="network-wired"
+    href="/api-reference/mcp-protocol/transports"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Utilities"
+    icon="wrench"
+    href="/api-reference/mcp-protocol/utilities"
+  />
+  <Card
+    title="Error Handling"
+    icon="triangle-exclamation"
+    href="/api-reference/mcp-protocol/error-handling"
+  />
+</CardGroup>{" "}

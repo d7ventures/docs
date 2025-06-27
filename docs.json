@@ -61,7 +61,10 @@
         "icon": "network-wired",
         "pages": [
           "api-reference/mcp-protocol/overview",
-          "api-reference/mcp-protocol/session-management",
+          "api-reference/mcp-protocol/base-protocol",
+          "api-reference/mcp-protocol/lifecycle",
+          "api-reference/mcp-protocol/transports",
+          "api-reference/mcp-protocol/utilities",
           "api-reference/mcp-protocol/error-handling"
         ]
       },

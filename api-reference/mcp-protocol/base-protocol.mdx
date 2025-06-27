@@ -1,0 +1,224 @@
+---
+title: "Base Protocol"
+description: "Understanding the JSON-RPC 2.0 foundation of MCP and core message types for client-server communication."
+---
+
+<Info>**Protocol Revision**: 2025-06-18</Info>
+
+The Model Context Protocol consists of several key components that work together:
+
+- **Base Protocol**: Core JSON-RPC message types
+- **Lifecycle Management**: Connection initialization, capability negotiation, and session control
+- **Server Features**: Resources, prompts, and tools exposed by servers
+- **Client Features**: Sampling and root directory lists provided by clients
+- **Utilities**: Cross-cutting concerns like logging and argument completion
+
+All implementations **MUST** support the base protocol and lifecycle management components. Other components **MAY** be implemented based on the specific needs of the application.
+
+## Messages
+
+All messages between MCP clients and servers **MUST** follow the JSON-RPC 2.0 specification. JSON-RPC messages **MUST** be UTF-8 encoded.
+
+The protocol defines these types of messages:
+
+### Requests
+
+Requests are sent from the client to the server or vice versa, to initiate an operation.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "method": "tools/list",
+  "params": {
+    "cursor": "eyJwYWdlIjogMn0="
+  }
+}
+```
+
+**Requirements:**
+
+- Requests **MUST** include a string or integer ID
+- Unlike base JSON-RPC, the ID **MUST NOT** be null
+- The request ID **MUST NOT** have been previously used by the requestor within the same session
+
+### Responses
+
+Responses are sent in reply to requests, containing the result or error of the operation.
+
+**Successful Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "result": {
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get weather information for a location",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "location": { "type": "string" }
+          },
+          "required": ["location"]
+        }
+      }
+    ]
+  }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-123",
+  "error": {
+    "code": -32602,
+    "message": "Invalid params",
+    "data": {
+      "details": "Missing required parameter 'location'",
+      "parameter": "location"
+    }
+  }
+}
+```
+
+**Requirements:**
+
+- Responses **MUST** include the same ID as the request they correspond to
+- Either a `result` or an `error` **MUST** be set, but not both
+- Results **MAY** follow any JSON object structure
+- Errors **MUST** include an error code and message at minimum
+- Error codes **MUST** be integers
+
+### Notifications
+
+Notifications are sent from the client to the server or vice versa, as a one-way message. The receiver **MUST NOT** send a response.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/initialized"
+}
+```
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "notifications/cancelled",
+  "params": {
+    "requestId": "request-123",
+    "reason": "User cancelled operation"
+  }
+}
+```
+
+**Requirements:**
+
+- Notifications **MUST NOT** include an ID
+- Notifications are one-way messages that expect no response
+
+### Batching
+
+JSON-RPC also defines a means to batch multiple requests and notifications, by sending them in an array.
+
+**Kambrium Implementation:** Based on our test suite (Category 04 - JSON-RPC Protocol), Kambrium fully supports JSON-RPC batch requests.
+
+```json
+[
+  {
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "tools/list"
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": "2",
+    "method": "resources/list"
+  },
+  {
+    "jsonrpc": "2.0",
+    "method": "notifications/progress",
+    "params": {
+      "progressToken": "operation-456",
+      "progress": 50
+    }
+  }
+]
+```
+
+**Requirements:**
+
+- MCP implementations **MAY** support sending JSON-RPC batches
+- MCP implementations **MUST** support receiving JSON-RPC batches
+- Batch responses maintain the same order and correlation via request IDs
+
+## Authentication
+
+MCP provides an Authorization framework for use with HTTP.
+
+**Kambrium Implementation:** Our HTTP-based transport implements comprehensive authentication:
+
+- **OAuth 2.1**: Complete AWS Cognito integration with scopes
+- **Personal Access Tokens (PATs)**: Direct token-based authentication
+- **Required Headers**: `Authorization`, `Mcp-Session-Id`, `MCP-Protocol-Version`
+
+Implementations using an HTTP-based transport **SHOULD** conform to this specification, whereas implementations using STDIO transport **SHOULD NOT** follow this specification, and instead retrieve credentials from the environment.
+
+## Protocol Version
+
+**Current Version:** `2025-06-18`
+
+When using HTTP transport, the client **MUST** include the `MCP-Protocol-Version` header:
+
+```http
+POST /pipedrive/mcp HTTP/1.1
+Host: api.kambrium.com
+Authorization: Bearer oauth_token_here
+MCP-Protocol-Version: 2025-06-18
+Mcp-Session-Id: session_abc123_xyz789
+Content-Type: application/json
+```
+
+## Kambrium-Specific Implementation
+
+Based on our test categories, Kambrium implements:
+
+### JSON-RPC 2.0 Compliance (Category 04)
+
+- ✅ **Request/Response Handling**: Proper correlation via request IDs
+- ✅ **Batch Support**: Full JSON-RPC batch request processing
+- ✅ **Notification Handling**: One-way message support
+- ✅ **Error Handling**: Standard JSON-RPC error codes
+
+### HTTP Transport Features (Category 05)
+
+- ✅ **HTTP Methods**: POST for requests, GET for SSE streaming, OPTIONS for CORS
+- ✅ **Headers**: Proper Content-Type, Authorization, and MCP-specific headers
+- ✅ **Status Codes**: HTTP compliance with 200, 202, 400, 401, 404, 500
+- ✅ **Streaming**: Server-Sent Events support for real-time communication
+
+### Multi-tenant Architecture (Category 08)
+
+- ✅ **Tenant Routing**: `/{tenant}/mcp` endpoint structure
+- ✅ **Isolation**: Complete data separation between tenants
+- ✅ **Configuration**: Per-tenant server configuration and capabilities
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Lifecycle"
+    icon="refresh"
+    href="/api-reference/mcp-protocol/lifecycle"
+  />
+  <Card
+    title="Transports"
+    icon="network-wired"
+    href="/api-reference/mcp-protocol/transports"
+  />
+</CardGroup>{" "}
