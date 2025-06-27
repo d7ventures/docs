@@ -3,7 +3,7 @@ title: "Lifecycle"
 description: "Understanding the MCP connection lifecycle - initialization, capability negotiation, operation, and shutdown phases."
 ---
 
-<Info>**Protocol Revision**: 2025-06-18</Info>
+<Info>**Protocol Revision**: 2025-03-26</Info>
 
 The Model Context Protocol (MCP) defines a rigorous lifecycle for client-server connections that ensures proper capability negotiation and state management.
 
@@ -55,7 +55,7 @@ The client **MUST** initiate this phase by sending an `initialize` request conta
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-03-26",
     "capabilities": {
       "experimental": {}
     },
@@ -75,7 +75,7 @@ The server **MUST** respond with its own capabilities and information:
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-03-26",
     "capabilities": {
       "logging": {},
       "prompts": {
@@ -194,7 +194,7 @@ Example initialization error:
     "message": "Invalid params",
     "data": {
       "details": "Unsupported protocol version",
-      "supported_versions": ["2025-06-18", "2024-11-05"]
+      "supported_versions": ["2025-03-26", "2024-11-05"]
     }
   }
 }
@@ -246,7 +246,7 @@ Example authenticated initialization:
 POST /pipedrive/mcp HTTP/1.1
 Host: api.kambrium.com
 Authorization: Bearer oauth_abc123
-MCP-Protocol-Version: 2025-06-18
+MCP-Protocol-Version: 2025-03-26
 Content-Type: application/json
 
 {
@@ -254,7 +254,7 @@ Content-Type: application/json
   "id": 1,
   "method": "initialize",
   "params": {
-    "protocolVersion": "2025-06-18",
+    "protocolVersion": "2025-03-26",
     "capabilities": {},
     "clientInfo": {
       "name": "MyMCPClient",

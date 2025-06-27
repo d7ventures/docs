@@ -3,7 +3,7 @@ title: "Base Protocol"
 description: "Understanding the JSON-RPC 2.0 foundation of MCP and core message types for client-server communication."
 ---
 
-<Info>**Protocol Revision**: 2025-06-18</Info>
+<Info>**Protocol Revision**: 2025-03-26</Info>
 
 The Model Context Protocol consists of several key components that work together:
 
@@ -170,7 +170,7 @@ Implementations using an HTTP-based transport **SHOULD** conform to this specifi
 
 ## Protocol Version
 
-**Current Version:** `2025-06-18`
+**Current Version:** `2025-03-26`
 
 When using HTTP transport, the client **MUST** include the `MCP-Protocol-Version` header:
 
@@ -178,7 +178,7 @@ When using HTTP transport, the client **MUST** include the `MCP-Protocol-Version
 POST /pipedrive/mcp HTTP/1.1
 Host: api.kambrium.com
 Authorization: Bearer oauth_token_here
-MCP-Protocol-Version: 2025-06-18
+MCP-Protocol-Version: 2025-03-26
 Mcp-Session-Id: session_abc123_xyz789
 Content-Type: application/json
 ```
