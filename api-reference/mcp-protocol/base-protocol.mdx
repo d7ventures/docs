@@ -10,8 +10,7 @@ The Model Context Protocol consists of several key components that work together
 - **Base Protocol**: Core JSON-RPC message types
 - **Lifecycle Management**: Connection initialization, capability negotiation, and session control
 - **Server Features**: Resources, prompts, and tools exposed by servers
-- **Client Features**: Sampling and root directory lists provided by clients
-- **Utilities**: Cross-cutting concerns like logging and argument completion
+- **Utilities**: Cross-cutting concerns like logging, cancellation, progress tracking, and argument completion
 
 All implementations **MUST** support the base protocol and lifecycle management components. Other components **MAY** be implemented based on the specific needs of the application.
 
@@ -126,7 +125,7 @@ Notifications are sent from the client to the server or vice versa, as a one-way
 
 JSON-RPC also defines a means to batch multiple requests and notifications, by sending them in an array.
 
-**Kambrium Implementation:** Based on our test suite (Category 04 - JSON-RPC Protocol), Kambrium fully supports JSON-RPC batch requests.
+Kambrium fully supports JSON-RPC batch requests as required by the MCP specification.
 
 ```json
 [
@@ -161,7 +160,7 @@ JSON-RPC also defines a means to batch multiple requests and notifications, by s
 
 MCP provides an Authorization framework for use with HTTP.
 
-**Kambrium Implementation:** Our HTTP-based transport implements comprehensive authentication:
+Kambrium's HTTP-based transport implements comprehensive authentication:
 
 - **OAuth 2.1**: Complete AWS Cognito integration with scopes
 - **Personal Access Tokens (PATs)**: Direct token-based authentication
@@ -184,29 +183,62 @@ Mcp-Session-Id: session_abc123_xyz789
 Content-Type: application/json
 ```
 
-## Kambrium-Specific Implementation
+## Kambrium Implementation
 
-Based on our test categories, Kambrium implements:
+Kambrium provides a complete MCP implementation:
 
-### JSON-RPC 2.0 Compliance (Category 04)
+### JSON-RPC 2.0 Compliance
 
 - ✅ **Request/Response Handling**: Proper correlation via request IDs
 - ✅ **Batch Support**: Full JSON-RPC batch request processing
 - ✅ **Notification Handling**: One-way message support
 - ✅ **Error Handling**: Standard JSON-RPC error codes
 
-### HTTP Transport Features (Category 05)
+### HTTP Transport Features
 
 - ✅ **HTTP Methods**: POST for requests, GET for SSE streaming, OPTIONS for CORS
 - ✅ **Headers**: Proper Content-Type, Authorization, and MCP-specific headers
 - ✅ **Status Codes**: HTTP compliance with 200, 202, 400, 401, 404, 500
 - ✅ **Streaming**: Server-Sent Events support for real-time communication
 
-### Multi-tenant Architecture (Category 08)
+### Security Features
 
-- ✅ **Tenant Routing**: `/{tenant}/mcp` endpoint structure
-- ✅ **Isolation**: Complete data separation between tenants
-- ✅ **Configuration**: Per-tenant server configuration and capabilities
+- ✅ **OAuth 2.1**: Complete authentication flow with scopes
+- ✅ **PAT Authentication**: Personal Access Token support
+- ✅ **Input Validation**: Comprehensive parameter validation and sanitization
+- ✅ **Access Control**: User-specific tool and resource permissions
+
+### Core Capabilities
+
+- ✅ **Tools**: Database-driven dynamic tools with user permissions
+- ✅ **Resources**: Static and dynamic resources with subscription support
+- ✅ **Prompts**: Template system with argument substitution
+- ✅ **Completions**: Argument autocompletion functionality
+- ✅ **Utilities**: Ping, progress tracking, cancellation, logging
+
+## Standard Error Codes
+
+Kambrium follows standard JSON-RPC error codes:
+
+| Code             | Message          | Meaning                                           |
+| ---------------- | ---------------- | ------------------------------------------------- |
+| -32700           | Parse error      | Invalid JSON was received                         |
+| -32600           | Invalid Request  | The JSON sent is not a valid Request object       |
+| -32601           | Method not found | The method does not exist / is not available      |
+| -32602           | Invalid params   | Invalid method parameter(s)                       |
+| -32603           | Internal error   | Internal JSON-RPC error                           |
+| -32000 to -32099 | Server error     | Reserved for implementation-defined server-errors |
+
+## Session State
+
+MCP maintains session state through:
+
+- **Session IDs**: Unique identifiers returned by server during initialization
+- **Request ID Tracking**: Ensures request ID uniqueness per session
+- **Authentication State**: OAuth/PAT token validation per session
+- **Capability Negotiation**: Server capabilities established during initialization
+
+For detailed lifecycle management, see the Lifecycle documentation.
 
 ## Next Steps
 

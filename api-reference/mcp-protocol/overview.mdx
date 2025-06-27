@@ -34,19 +34,11 @@ MCP takes some inspiration from the [Language Server Protocol](https://microsoft
 
 ### Server Features
 
-Servers offer the following features to clients:
+Kambrium implements the following MCP server features:
 
-- **Resources**: Context and data, for the user or the AI model to use
-- **Prompts**: Templated messages and workflows for users
-- **Tools**: Functions for the AI model to execute
-
-### Client Features
-
-Clients may offer the following features to servers:
-
-- **Sampling**: Server-initiated agentic behaviors and recursive LLM interactions
-- **Roots**: Server-initiated inquiries into URI or filesystem boundaries to operate in
-- **Elicitation**: Server-initiated requests for additional information from users
+- **Resources**: Context and data sources with subscription support
+- **Prompts**: Templated messages and workflows with argument completion
+- **Tools**: Executable functions with dynamic database-driven generation
 
 ### Additional Utilities
 
@@ -58,7 +50,7 @@ Clients may offer the following features to servers:
 
 ## Kambrium Implementation
 
-Kambrium's MCP server implements the complete MCP 2025-06-18 specification with the following specific features:
+Kambrium's MCP server provides a complete implementation of the MCP 2025-06-18 specification with enterprise-grade features:
 
 ### Transport Support
 
@@ -74,7 +66,7 @@ Kambrium's MCP server implements the complete MCP 2025-06-18 specification with 
 
 ### Core Capabilities
 
-Based on our test suite, Kambrium implements:
+Kambrium implements:
 
 - ✅ **JSON-RPC 2.0**: Complete protocol compliance including batch requests
 - ✅ **Lifecycle Management**: Initialization, capability negotiation, session management

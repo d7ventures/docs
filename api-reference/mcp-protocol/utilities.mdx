@@ -1,271 +1,287 @@
 ---
-title: "Utilities"
-description: "MCP protocol utilities for connection health, progress tracking, cancellation, and pagination."
+title: "MCP Utilities"
+description: "Protocol utilities for connection health monitoring, progress tracking, and request cancellation"
 ---
 
-<Info>**Protocol Revision**: 2025-06-18</Info>
+<Info>
+  **Protocol Utilities**: Core MCP utilities for enhanced functionality
+</Info>
 
-The Model Context Protocol includes several utility features that support robust client-server communication. These utilities are designed to improve reliability, provide feedback, and enable efficient data transfer.
+MCP provides several protocol utilities that enhance the core functionality with connection health monitoring, progress tracking, and request cancellation capabilities.
 
-## Ping
+## Available Utilities
 
-The ping functionality allows either party to verify that their counterpart is still responsive and the connection is alive.
+Kambrium implements the following MCP protocol utilities:
 
-### Overview
+- **Ping**: Connection health monitoring and keep-alive functionality
+- **Progress**: Progress tracking for long-running operations
+- **Cancellation**: Request cancellation mechanism for async operations
 
-The ping functionality is implemented through a simple request/response pattern. Either the client or server can initiate a ping by sending a `ping` request.
+## Ping Utility
 
-### Message Format
+The ping utility provides connection health monitoring and keep-alive functionality.
 
-A ping request is a standard JSON-RPC request with no parameters:
+### Method: `ping`
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "ping-123",
-  "method": "ping"
-}
-```
+Send a ping to check server connectivity and response time.
 
-### Behavior Requirements
-
-1. The receiver **MUST** respond promptly with an empty response:
+**Request:**
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "ping-123",
-  "result": {}
+  "method": "ping",
+  "id": "ping-1"
 }
 ```
 
-2. If no response is received within a reasonable timeout period, the sender **MAY**:
-   - Consider the connection stale
-   - Terminate the connection
-   - Attempt reconnection procedures
+**Response:**
 
-**Kambrium Implementation**: Based on our test suite (Category 06 - MCP Utilities), we implement ping with configurable timeouts and automatic connection health monitoring.
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "server_time": 1642248600,
+    "response_time_ms": 12
+  },
+  "id": "ping-1"
+}
+```
 
-```mermaid
-sequenceDiagram
-    participant Sender
-    participant Receiver
+### Features
 
-    Sender->>Receiver: ping request
-    Receiver->>Sender: empty response
+- **Rate Limiting**: Maximum 10 pings per minute per client
+- **Statistics**: Response time tracking and connection statistics
+- **Keep-Alive**: Maintains connection health for long-lived sessions
+
+### Usage Example
+
+```python
+# Send ping request
+ping_request = {
+    "jsonrpc": "2.0",
+    "method": "ping",
+    "id": "ping-1"
+}
+
+response = await client.post("/pipedrive/mcp", json=ping_request)
+print(f"Server response time: {response['result']['response_time_ms']}ms")
 ```
 
 ## Progress Tracking
 
-Progress notifications allow servers to provide real-time updates on long-running operations.
+The progress utility enables tracking of long-running operations with real-time updates.
 
-### Progress Notification
+### Progress Notifications
 
-Servers can send progress notifications to inform clients about the status of ongoing operations:
+For operations that take time to complete, the server can send progress notifications.
+
+**Progress Notification:**
 
 ```json
 {
   "jsonrpc": "2.0",
   "method": "notifications/progress",
   "params": {
-    "progressToken": "operation-456",
-    "progress": 50,
-    "total": 100
+    "progress_token": "op-123",
+    "progress": 0.5,
+    "message": "Processing records: 500/1000"
   }
 }
 ```
 
 ### Parameters
 
-- `progressToken`: Unique identifier for the operation
-- `progress`: Current progress value
-- `total` (optional): Total expected value
+| Parameter        | Type   | Description                         |
+| ---------------- | ------ | ----------------------------------- |
+| `progress_token` | string | Unique identifier for the operation |
+| `progress`       | number | Progress value between 0.0 and 1.0  |
+| `message`        | string | Human-readable progress description |
 
-**Kambrium Implementation**: Our progress tracking (Category 06 tests) supports:
+### Features
 
-- ✅ **Token-based Operations**: Unique progress tokens for operation correlation
-- ✅ **Real-time Updates**: Live progress notifications via SSE
-- ✅ **Completion Tracking**: Progress from 0 to total with status updates
+- **Rate Limiting**: Maximum 60 progress notifications per minute
+- **Auto-Completion**: Automatic cleanup when operations complete
+- **Validation**: Progress values validated between 0.0 and 1.0
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
+### Usage Example
 
-    Client->>Server: Long-running operation request
-    loop Progress Updates
-        Server--)Client: Progress notification (25%)
-        Server--)Client: Progress notification (50%)
-        Server--)Client: Progress notification (75%)
-    end
-    Server->>Client: Final response (100%)
+```python
+# Long-running operation that sends progress
+async def long_operation():
+    total_items = 1000
+    for i in range(total_items):
+        # Process item
+        await process_item(i)
+
+        # Send progress notification
+        if i % 100 == 0:  # Every 100 items
+            progress = i / total_items
+            await send_progress_notification(
+                token="op-123",
+                progress=progress,
+                message=f"Processed {i}/{total_items} items"
+            )
 ```
 
-## Cancellation
+## Request Cancellation
 
-The cancellation mechanism allows clients to abort ongoing operations.
+The cancellation utility allows clients to cancel long-running requests.
 
-### Cancellation Notification
+### Method: `notifications/cancelled`
 
-Clients can send cancellation notifications to request that the server abort a specific operation:
+Send a cancellation notification for a pending request.
+
+**Notification:**
 
 ```json
 {
   "jsonrpc": "2.0",
   "method": "notifications/cancelled",
   "params": {
-    "requestId": "request-123",
-    "reason": "User cancelled operation"
+    "request_id": "long-running-123"
   }
 }
 ```
 
 ### Parameters
 
-- `requestId`: The ID of the request to cancel
-- `reason` (optional): Human-readable reason for cancellation
+| Parameter    | Type   | Description                 |
+| ------------ | ------ | --------------------------- |
+| `request_id` | string | ID of the request to cancel |
 
-### Server Behavior
+### Features
 
-Upon receiving a cancellation notification, servers **SHOULD**:
+- **Request Tracking**: Tracks up to 1000 concurrent requests
+- **Race Condition Handling**: Prevents race conditions between completion and cancellation
+- **Cleanup**: Automatic cleanup of cancelled request data
 
-- Stop processing the specified request
-- Clean up any associated resources
-- **MAY** still send a response indicating cancellation
+### Usage Example
 
-**Kambrium Implementation**: Our cancellation support (Category 06 tests) provides:
+```python
+# Start a long-running operation
+operation_request = {
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+        "name": "long_running_tool",
+        "arguments": {"data": "large_dataset"}
+    },
+    "id": "long-running-123"
+}
 
-- ✅ **Request Correlation**: Cancel operations by request ID
-- ✅ **Resource Cleanup**: Proper cleanup of cancelled operations
-- ✅ **Graceful Handling**: Safe operation cancellation without data corruption
+# Send the request (non-blocking)
+await client.post("/pipedrive/mcp", json=operation_request)
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
+# Later, cancel if needed
+cancel_notification = {
+    "jsonrpc": "2.0",
+    "method": "notifications/cancelled",
+    "params": {
+        "request_id": "long-running-123"
+    }
+}
 
-    Client->>Server: Long-running request (ID: 123)
-    Server--)Client: Progress notification
-    Client--)Server: Cancellation notification (ID: 123)
-    Server->>Client: Cancellation response or no response
+await client.post("/pipedrive/mcp", json=cancel_notification)
 ```
 
-## Pagination
+## Error Handling
 
-MCP supports cursor-based pagination for list operations that may return large result sets.
-
-### Pagination Model
-
-Pagination in MCP uses an opaque cursor-based approach, instead of numbered pages.
-
-- The **cursor** is an opaque string token, representing a position in the result set
-- **Page size** is determined by the server, and clients **MUST NOT** assume a fixed page size
-
-### Response Format
-
-Pagination starts when the server sends a **response** that includes:
-
-- The current page of results
-- An optional `nextCursor` field if more results exist
+### Ping Errors
 
 ```json
 {
   "jsonrpc": "2.0",
-  "id": "123",
-  "result": {
-    "tools": [
-      {
-        "name": "get_weather",
-        "description": "Get weather information"
-      }
-    ],
-    "nextCursor": "eyJwYWdlIjogM30="
-  }
+  "error": {
+    "code": -32000,
+    "message": "Ping rate limit exceeded"
+  },
+  "id": "ping-1"
 }
 ```
 
-### Request Format
-
-After receiving a cursor, the client can _continue_ paginating by issuing a request including that cursor:
+### Progress Errors
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "tools/list",
-  "params": {
-    "cursor": "eyJwYWdlIjogMn0="
+  "error": {
+    "code": -32602,
+    "message": "Invalid progress value: must be between 0.0 and 1.0"
+  },
+  "id": null
+}
+```
+
+### Cancellation Errors
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32601,
+    "message": "Request not found for cancellation"
+  },
+  "id": null
+}
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Ping Configuration
+PING_ENABLED=true
+PING_MAX_RATE=10  # pings per minute
+PING_LOG_REQUESTS=false
+
+# Progress Configuration
+PROGRESS_ENABLED=true
+PROGRESS_MAX_TRACKED_OPERATIONS=500
+PROGRESS_MAX_NOTIFICATIONS_PER_MINUTE=60
+
+# Cancellation Configuration
+CANCELLATION_ENABLED=true
+CANCELLATION_MAX_TRACKED_REQUESTS=1000
+```
+
+### Usage Statistics
+
+The utilities provide statistics for monitoring:
+
+```python
+# Get utility statistics
+stats = await get_utility_statistics()
+print(stats)
+
+# Example output:
+{
+  "ping": {
+    "total_pings": 1250,
+    "average_response_time_ms": 15,
+    "rate_limited_requests": 5
+  },
+  "progress": {
+    "active_operations": 3,
+    "total_notifications_sent": 2400,
+    "completed_operations": 127
+  },
+  "cancellation": {
+    "tracked_requests": 15,
+    "cancelled_requests": 2,
+    "successful_cancellations": 2
   }
 }
 ```
 
-**Kambrium Implementation**: Based on our tests, pagination is supported for:
+## Best Practices
 
-- `tools/list` - List available tools
-- `resources/list` - List available resources
-- `prompts/list` - List available prompts
+1. **Use ping sparingly** - Implement exponential backoff for health checks
+2. **Progress granularity** - Send progress updates at reasonable intervals (not every item)
+3. **Cancellation timeouts** - Set reasonable timeouts for long-running operations
+4. **Error handling** - Always handle utility-specific error responses
+5. **Resource cleanup** - Utilities automatically clean up expired data
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
-
-    Client->>Server: List Request (no cursor)
-    loop Pagination Loop
-      Server-->>Client: Page of results + nextCursor
-      Client->>Server: List Request (with cursor)
-    end
-    Server-->>Client: Final page (no nextCursor)
-```
-
-### Implementation Guidelines
-
-1. Servers **SHOULD**:
-
-   - Provide stable cursors
-   - Handle invalid cursors gracefully
-
-2. Clients **SHOULD**:
-
-   - Treat a missing `nextCursor` as the end of results
-   - Support both paginated and non-paginated flows
-
-3. Clients **MUST** treat cursors as opaque tokens:
-   - Don't make assumptions about cursor format
-   - Don't attempt to parse or modify cursors
-   - Don't persist cursors across sessions
-
-### Error Handling
-
-Invalid cursors **SHOULD** result in an error with code -32602 (Invalid params).
-
-## Kambrium Utility Implementation
-
-Based on our comprehensive test suite, Kambrium implements all MCP utilities:
-
-### Test Coverage (Category 06 - MCP Utilities)
-
-- ✅ **Ping Tests**: Connection health monitoring and timeout handling
-- ✅ **Progress Tests**: Real-time progress tracking for long operations
-- ✅ **Cancellation Tests**: Request cancellation and resource cleanup
-
-### Additional Features
-
-- **Multi-tenant Support**: All utilities work within tenant-isolated environments
-- **Authentication Integration**: Utilities respect OAuth/PAT authentication
-- **Performance Optimized**: Efficient handling under high load conditions
-- **Error Recovery**: Robust error handling and recovery mechanisms
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card
-    title="Error Handling"
-    icon="triangle-exclamation"
-    href="/api-reference/mcp-protocol/error-handling"
-  />
-  <Card
-    title="MCP Methods"
-    icon="code"
-    href="/api-reference/mcp-methods/tools-list"
-  />
-</CardGroup>
+For more advanced protocol features, see the Error Handling documentation.

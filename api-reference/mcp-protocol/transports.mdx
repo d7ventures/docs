@@ -1,227 +1,301 @@
 ---
-title: "Transports"
-description: "Understanding MCP transport mechanisms - HTTP and stdio transports for client-server communication."
+title: "Transport Layer"
+description: "HTTP transport implementation for Model Context Protocol"
 ---
 
-<Info>**Protocol Revision**: 2025-06-18</Info>
+<Info>**Transport Implementation**: Kambrium provides HTTP transport only</Info>
 
-MCP uses JSON-RPC to encode messages. JSON-RPC messages **MUST** be UTF-8 encoded.
+The Model Context Protocol (MCP) supports different transport mechanisms for communication between hosts and clients. Kambrium implements HTTP transport with comprehensive security features and multi-tenant support.
 
-The protocol currently defines two standard transport mechanisms for client-server communication:
+## HTTP Transport
 
-1. [stdio](#stdio), communication over standard in and standard out
-2. [Streamable HTTP](#streamable-http)
+Kambrium's HTTP transport implementation provides:
 
-Clients **SHOULD** support stdio whenever possible.
+- **POST endpoints** for standard JSON-RPC messages
+- **GET endpoints** for Server-Sent Events (SSE) streaming
+- **Multi-tenant routing** with `/{tenant}/mcp` paths
+- **Session management** via `Mcp-Session-Id` headers
+- **Security compliance** with CORS, rate limiting, and input validation
 
-It is also possible for clients and servers to implement [custom transports](#custom-transports) in a pluggable fashion.
+### Endpoint Structure
 
-## stdio
-
-In the **stdio** transport:
-
-- The client launches the MCP server as a subprocess.
-- The server reads JSON-RPC messages from its standard input (`stdin`) and sends messages to its standard output (`stdout`).
-- Messages are individual JSON-RPC requests, notifications, or responses.
-- Messages are delimited by newlines, and **MUST NOT** contain embedded newlines.
-- The server **MAY** write UTF-8 strings to its standard error (`stderr`) for logging purposes. Clients **MAY** capture, forward, or ignore this logging.
-- The server **MUST NOT** write anything to its `stdout` that is not a valid MCP message.
-- The client **MUST NOT** write anything to the server's `stdin` that is not a valid MCP message.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server Process
-
-    Client->>+Server Process: Launch subprocess
-    loop Message Exchange
-        Client->>Server Process: Write to stdin
-        Server Process->>Client: Write to stdout
-        Server Process--)Client: Optional logs on stderr
-    end
-    Client->>Server Process: Close stdin, terminate subprocess
-    deactivate Server Process
+```
+/{tenant}/mcp
 ```
 
-<Note>
-  **Kambrium Note**: Kambrium focuses on HTTP transport for production
-  deployments. stdio transport is not currently implemented in our
-  infrastructure.
-</Note>
+Where `{tenant}` is the path prefix identifying the specific MCP server instance.
 
-## Streamable HTTP
+### HTTP Methods
 
-<Info>
-  This replaces the HTTP+SSE transport from protocol version 2024-11-05.
-</Info>
+#### POST - Standard Requests
 
-In the **Streamable HTTP** transport, the server operates as an independent process that can handle multiple client connections. This transport uses HTTP POST and GET requests. Server can optionally make use of [Server-Sent Events](https://en.wikipedia.org/wiki/Server-sent_events) (SSE) to stream multiple server messages.
+Used for most MCP communication:
 
-The server **MUST** provide a single HTTP endpoint path (hereafter referred to as the **MCP endpoint**) that supports both POST and GET methods.
-
-**Kambrium Implementation**: Our MCP endpoint follows the pattern `/{tenant}/mcp` (e.g., `https://api.kambrium.com/pipedrive/mcp`).
-
-#### Security Warning
-
-When implementing Streamable HTTP transport:
-
-1. Servers **MUST** validate the `Origin` header on all incoming connections to prevent DNS rebinding attacks
-2. When running locally, servers **SHOULD** bind only to localhost (127.0.0.1) rather than all network interfaces (0.0.0.0)
-3. Servers **SHOULD** implement proper authentication for all connections
-
-**Kambrium Security**: We implement all recommended security measures including origin validation, OAuth/PAT authentication, and secure HTTPS-only endpoints.
-
-### Sending Messages to the Server
-
-Every JSON-RPC message sent from the client **MUST** be a new HTTP POST request to the MCP endpoint.
-
-1. The client **MUST** use HTTP POST to send JSON-RPC messages to the MCP endpoint.
-2. The client **MUST** include an `Accept` header, listing both `application/json` and `text/event-stream` as supported content types.
-3. The body of the POST request **MUST** be a single JSON-RPC _request_, _notification_, or _response_.
-4. If the input is a JSON-RPC _response_ or _notification_:
-   - If the server accepts the input, the server **MUST** return HTTP status code 202 Accepted with no body.
-   - If the server cannot accept the input, it **MUST** return an HTTP error status code (e.g., 400 Bad Request).
-5. If the input is a JSON-RPC _request_, the server **MUST** either return `Content-Type: text/event-stream`, to initiate an SSE stream, or `Content-Type: application/json`, to return one JSON object.
-
-**Example Kambrium Request:**
-
-```http
-POST /pipedrive/mcp HTTP/1.1
-Host: api.kambrium.com
-Authorization: Bearer oauth_token_here
-MCP-Protocol-Version: 2025-06-18
-Mcp-Session-Id: session_abc123_xyz789
+```bash
+POST /{tenant}/mcp
 Content-Type: application/json
-Accept: application/json, text/event-stream
+Authorization: Bearer {token}
 
 {
   "jsonrpc": "2.0",
-  "id": "request-123",
   "method": "tools/list",
-  "params": {
-    "cursor": "eyJwYWdlIjogMn0="
-  }
+  "id": "req-1"
 }
 ```
 
-### Listening for Messages from the Server
+#### GET - Server-Sent Events
 
-1. The client **MAY** issue an HTTP GET to the MCP endpoint to open an SSE stream.
-2. The client **MUST** include an `Accept` header, listing `text/event-stream` as a supported content type.
-3. The server **MUST** either return `Content-Type: text/event-stream` or return HTTP 405 Method Not Allowed.
+Used for streaming and long-lived connections:
 
-**Kambrium Implementation**: Based on our test suite (Category 05 - HTTP Transport), we support both POST and GET methods with proper SSE streaming.
+```bash
+GET /{tenant}/mcp
+Accept: text/event-stream
+Authorization: Bearer {token}
+```
+
+### Headers
+
+#### Required Headers
+
+| Header          | Purpose                  | Example            |
+| --------------- | ------------------------ | ------------------ |
+| `Content-Type`  | JSON-RPC content         | `application/json` |
+| `Authorization` | OAuth/PAT authentication | `Bearer {token}`   |
+
+#### Optional Headers
+
+| Header           | Purpose            | Example             |
+| ---------------- | ------------------ | ------------------- |
+| `Mcp-Session-Id` | Session management | `session-123`       |
+| `Accept`         | Response format    | `text/event-stream` |
+
+### Authentication
+
+All HTTP requests require authentication:
+
+#### OAuth 2.1 Bearer Tokens
+
+```bash
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Personal Access Tokens (PAT)
+
+```bash
+Authorization: Bearer pat_development_user123_abcd1234...
+```
 
 ### Session Management
 
-An MCP "session" consists of logically related interactions between a client and a server, beginning with the initialization phase.
+Sessions are managed via the `Mcp-Session-Id` header:
 
-1. A server using the Streamable HTTP transport **MAY** assign a session ID at initialization time, by including it in an `Mcp-Session-Id` header on the HTTP response containing the `InitializeResult`.
-2. If an `Mcp-Session-Id` is returned by the server during initialization, clients **MUST** include it in the `Mcp-Session-Id` header on all subsequent HTTP requests.
-3. The server **MAY** terminate the session at any time, after which it **MUST** respond to requests containing that session ID with HTTP 404 Not Found.
-4. When a client receives HTTP 404 in response to a request containing an `Mcp-Session-Id`, it **MUST** start a new session by sending a new `InitializeRequest` without a session ID attached.
+1. **Initial Request**: No session header required
+2. **Server Response**: Returns `Mcp-Session-Id` header
+3. **Subsequent Requests**: Include the session ID
 
-**Kambrium Session Flow:**
+```bash
+# First request
+POST /pipedrive/mcp
+Authorization: Bearer {token}
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Server
+# Server response includes
+Mcp-Session-Id: sess_abc123
 
-    note over Client, Server: initialization
-
-    Client->>+Server: POST InitializeRequest
-    Server->>-Client: InitializeResponse<br>Mcp-Session-Id: 1868a90c...
-
-    Client->>+Server: POST InitializedNotification<br>Mcp-Session-Id: 1868a90c...
-    Server->>-Client: 202 Accepted
-
-    note over Client, Server: client requests
-    Client->>+Server: POST ... request ...<br>Mcp-Session-Id: 1868a90c...
-
-    alt single HTTP response
-      Server->>Client: ... response ...
-    else server opens SSE stream
-      loop while connection remains open
-          Server-)Client: ... SSE messages from server ...
-      end
-      Server-)Client: SSE event: ... response ...
-    end
-    deactivate Server
+# Subsequent requests
+POST /pipedrive/mcp
+Authorization: Bearer {token}
+Mcp-Session-Id: sess_abc123
 ```
 
-### Protocol Version Header
+### Rate Limiting
 
-The client **MUST** include the `MCP-Protocol-Version: <protocol-version>` HTTP header on all requests to the MCP server.
+HTTP transport includes advanced rate limiting:
 
-**Example:** `MCP-Protocol-Version: 2025-06-18`
+- **Per-endpoint limits**: Different limits for MCP POST, GET, and health endpoints
+- **Burst control**: Allows quick succession up to burst size
+- **Client identification**: OAuth-aware rate limiting
+- **MCP-compliant errors**: Proper JSON-RPC error responses
 
-The protocol version sent by the client **SHOULD** be the one negotiated during initialization.
+Rate limit headers in responses:
 
-For backwards compatibility, if the server does _not_ receive an `MCP-Protocol-Version` header, the server **SHOULD** assume protocol version `2025-06-18`.
+```bash
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1609459200
+```
 
-If the server receives a request with an invalid or unsupported `MCP-Protocol-Version`, it **MUST** respond with `400 Bad Request`.
+### CORS Support
 
-## Kambrium HTTP Implementation
+The server includes comprehensive CORS support:
 
-Based on our comprehensive test suite, Kambrium implements:
+- **Preflight handling**: OPTIONS requests supported
+- **Origin validation**: Configurable allowed origins
+- **Credential support**: `Access-Control-Allow-Credentials`
 
-### HTTP Transport Features (Category 05)
+### Server-Sent Events (SSE)
 
-- ✅ **HTTP Methods**: POST for requests, GET for SSE streaming, OPTIONS for CORS
-- ✅ **Headers**: Proper Content-Type, Authorization, and MCP-specific headers
-- ✅ **Status Codes**: HTTP compliance with 200, 202, 400, 401, 404, 500
-- ✅ **Streaming**: Server-Sent Events support for real-time communication
+For real-time communication and streaming:
 
-### Multi-tenant Architecture (Category 08)
+```javascript
+const eventSource = new EventSource("/pipedrive/mcp", {
+  headers: {
+    Authorization: "Bearer " + token,
+  },
+});
 
-- ✅ **Tenant Routing**: `/{tenant}/mcp` endpoint structure
-- ✅ **Isolation**: Complete data separation between tenants
-- ✅ **Configuration**: Per-tenant server configuration and capabilities
+eventSource.onmessage = function (event) {
+  const data = JSON.parse(event.data);
+  console.log("Received:", data);
+};
+```
 
-### Security Features (Categories 07, 09)
+### Error Handling
 
-- ✅ **OAuth 2.1**: Complete authentication flow with scopes
-- ✅ **PAT Authentication**: Personal Access Token support
-- ✅ **Input Validation**: Comprehensive parameter validation and sanitization
-- ✅ **Access Control**: User-specific tool and resource permissions
+HTTP transport provides proper error responses:
 
-### Performance & Reliability (Categories 10, 11)
+#### Authentication Errors
 
-- ✅ **Concurrent Requests**: Multi-threaded request handling
-- ✅ **Load Testing**: Validated under high load conditions
-- ✅ **Rate Limiting**: Built-in throttling and protection
-- ✅ **Health Monitoring**: Comprehensive health checks and metrics
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request",
+    "data": "Authentication required"
+  },
+  "id": null
+}
+```
 
-## Required Headers
+#### Rate Limit Errors
 
-For all Kambrium HTTP requests:
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32000,
+    "message": "Rate limit exceeded"
+  },
+  "id": "req-1"
+}
+```
 
-| Header                 | Required | Description                       | Example                               |
-| ---------------------- | -------- | --------------------------------- | ------------------------------------- |
-| `Authorization`        | Yes      | OAuth token or PAT authentication | `Bearer oauth_abc123`                 |
-| `MCP-Protocol-Version` | Yes      | MCP protocol version              | `2025-06-18`                          |
-| `Mcp-Session-Id`       | Yes\*    | Session identifier (\*after init) | `session_abc123_xyz789`               |
-| `Content-Type`         | Yes      | Request content type              | `application/json`                    |
-| `Accept`               | Yes      | Accepted response types           | `application/json, text/event-stream` |
+## Security Features
 
-## Custom Transports
+### DNS Rebinding Protection
 
-Clients and servers **MAY** implement additional custom transport mechanisms to suit their specific needs. The protocol is transport-agnostic and can be implemented over any communication channel that supports bidirectional message exchange.
+- **Origin validation**: Strict origin checking for browser requests
+- **Host header validation**: Prevents DNS rebinding attacks
+- **Secure headers**: Comprehensive security header configuration
 
-Implementers who choose to support custom transports **MUST** ensure they preserve the JSON-RPC message format and lifecycle requirements defined by MCP.
+### Input Validation
 
-## Next Steps
+- **JSON schema validation**: All requests validated against schemas
+- **Parameter sanitization**: Input sanitization for security
+- **Size limits**: Request size limits to prevent abuse
 
-<CardGroup cols={2}>
-  <Card
-    title="Utilities"
-    icon="wrench"
-    href="/api-reference/mcp-protocol/utilities"
-  />
-  <Card
-    title="Error Handling"
-    icon="triangle-exclamation"
-    href="/api-reference/mcp-protocol/error-handling"
-  />
-</CardGroup>{" "}
+### Connection Security
+
+- **TLS enforcement**: HTTPS recommended for production
+- **Token validation**: OAuth/PAT token verification
+- **Session isolation**: Multi-tenant session separation
+
+## Usage Examples
+
+### Basic HTTP Client
+
+```python
+import httpx
+import asyncio
+
+async def mcp_request():
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.kambrium.com/pipedrive/mcp",
+            headers={
+                "Authorization": "Bearer your_token",
+                "Content-Type": "application/json"
+            },
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/list",
+                "id": "req-1"
+            }
+        )
+        return response.json()
+```
+
+### Session Management
+
+```python
+async def mcp_session():
+    headers = {
+        "Authorization": "Bearer your_token",
+        "Content-Type": "application/json"
+    }
+
+    # First request
+    response = await client.post(url, headers=headers, json=request)
+    session_id = response.headers.get("Mcp-Session-Id")
+
+    # Subsequent requests with session
+    if session_id:
+        headers["Mcp-Session-Id"] = session_id
+
+    response = await client.post(url, headers=headers, json=next_request)
+```
+
+### Batch Requests
+
+```python
+batch_request = [
+    {"jsonrpc": "2.0", "method": "tools/list", "id": "1"},
+    {"jsonrpc": "2.0", "method": "resources/list", "id": "2"},
+    {"jsonrpc": "2.0", "method": "prompts/list", "id": "3"}
+]
+
+response = await client.post(url, headers=headers, json=batch_request)
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# HTTP Transport Configuration
+MCP_HOST=0.0.0.0
+MCP_PORT=8000
+MCP_ALLOWED_ORIGINS=["https://app.kambrium.com"]
+
+# Rate Limiting
+ENABLE_RATE_LIMITING=true
+RATE_LIMIT_MCP_POST=60
+RATE_LIMIT_MCP_GET=30
+RATE_LIMIT_BURST_SIZE=10
+
+# Security
+SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-jwt-secret
+```
+
+### Multi-Tenant Setup
+
+Configure tenant routing in your database:
+
+```sql
+INSERT INTO mcp_servers (path_prefix, api_provider_id, config)
+VALUES ('pipedrive', 1, '{"oauth_enabled": true}');
+```
+
+This creates a tenant accessible at `/{path_prefix}/mcp`.
+
+## Best Practices
+
+1. **Always use HTTPS** in production environments
+2. **Implement proper authentication** with OAuth or PAT tokens
+3. **Handle rate limits** gracefully with exponential backoff
+4. **Use session management** for multi-request workflows
+5. **Validate all inputs** before sending requests
+6. **Monitor connection health** with ping utilities
+
+For detailed implementation examples, see the MCP Methods documentation.

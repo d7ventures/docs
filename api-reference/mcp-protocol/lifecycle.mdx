@@ -57,11 +57,7 @@ The client **MUST** initiate this phase by sending an `initialize` request conta
   "params": {
     "protocolVersion": "2025-06-18",
     "capabilities": {
-      "roots": {
-        "listChanged": true
-      },
-      "sampling": {},
-      "elicitation": {}
+      "experimental": {}
     },
     "clientInfo": {
       "name": "ExampleClient",
@@ -132,14 +128,10 @@ If the client does not support the version in the server's response, it **SHOULD
 
 Client and server capabilities establish which optional protocol features will be available during the session.
 
-Key capabilities include:
+Server capabilities supported by Kambrium:
 
 | Category | Capability     | Description                                              |
 | -------- | -------------- | -------------------------------------------------------- |
-| Client   | `roots`        | Ability to provide filesystem roots                      |
-| Client   | `sampling`     | Support for LLM sampling requests                        |
-| Client   | `elicitation`  | Support for server elicitation requests                  |
-| Client   | `experimental` | Describes support for non-standard experimental features |
 | Server   | `prompts`      | Offers prompt templates                                  |
 | Server   | `resources`    | Provides readable resources                              |
 | Server   | `tools`        | Exposes callable tools                                   |
@@ -152,7 +144,7 @@ Capability objects can describe sub-capabilities like:
 - `listChanged`: Support for list change notifications (for prompts, resources, and tools)
 - `subscribe`: Support for subscribing to individual items' changes (resources only)
 
-**Kambrium Implementation:** Based on our test suite (Category 01 - MCP Core Protocol), we implement all standard capabilities with proper negotiation.
+Kambrium implements all standard server capabilities with proper negotiation.
 
 ### Operation
 
@@ -163,8 +155,6 @@ Both parties **MUST**:
 - Respect the negotiated protocol version
 - Only use capabilities that were successfully negotiated
 
-**Kambrium Implementation:** Our test suite validates operation phase behavior across all categories.
-
 ### Shutdown
 
 During the shutdown phase, one side (usually the client) cleanly terminates the protocol connection. No specific shutdown messages are defined—instead, the underlying transport mechanism should be used to signal connection termination:
@@ -173,13 +163,13 @@ During the shutdown phase, one side (usually the client) cleanly terminates the 
 
 For HTTP transports, shutdown is indicated by closing the associated HTTP connection(s).
 
-**Kambrium Implementation:** Our HTTP transport supports graceful shutdown via session termination and connection closure.
+Kambrium's HTTP transport supports graceful shutdown via session termination and connection closure.
 
 ## Timeouts
 
 Implementations **SHOULD** establish timeouts for all sent requests, to prevent hung connections and resource exhaustion. When the request has not received a success or error response within the timeout period, the sender **SHOULD** issue a cancellation notification for that request and stop waiting for a response.
 
-**Kambrium Implementation:** Based on our test suite (Category 06 - MCP Utilities), we implement proper timeout handling with cancellation support.
+Kambrium implements proper timeout handling with cancellation support.
 
 SDKs and other middleware **SHOULD** allow these timeouts to be configured on a per-request basis.
 
@@ -201,39 +191,80 @@ Example initialization error:
   "id": 1,
   "error": {
     "code": -32602,
-    "message": "Unsupported protocol version",
+    "message": "Invalid params",
     "data": {
-      "supported": ["2025-06-18"],
-      "requested": "1.0.0"
+      "details": "Unsupported protocol version",
+      "supported_versions": ["2025-06-18", "2024-11-05"]
     }
   }
 }
 ```
 
-**Kambrium Implementation:** Our error handling (verified in test categories) follows JSON-RPC standards with detailed error responses.
+## Session Management
 
-## Kambrium Session Management
+Kambrium maintains session state through the MCP lifecycle:
 
-For HTTP-based clients, Kambrium implements additional session management features:
+### Session Creation
 
-### Session Headers
+1. Client sends `initialize` request
+2. Server responds with session ID in `Mcp-Session-Id` header
+3. Client sends `initialized` notification with session ID
+4. Session is now active for operations
+
+### Session Validation
+
+- Request ID uniqueness enforced per session
+- Session timeout after periods of inactivity
+- Authentication state maintained per session
+
+### Session Termination
+
+- Explicit connection closure
+- Session timeout
+- Authentication revocation
+- Server shutdown
+
+## Authentication Integration
+
+When using HTTP transport, authentication is handled through:
+
+### OAuth 2.1 Flow
+
+1. Client obtains OAuth token through standard flow
+2. Token included in `Authorization` header for all requests
+3. Session tied to authenticated user for tool/resource access
+
+### Personal Access Token (PAT)
+
+1. User generates PAT through management interface
+2. PAT included in `Authorization` header
+3. Session validated against PAT permissions
+
+Example authenticated initialization:
 
 ```http
 POST /pipedrive/mcp HTTP/1.1
 Host: api.kambrium.com
-Authorization: Bearer oauth_token_here
+Authorization: Bearer oauth_abc123
 MCP-Protocol-Version: 2025-06-18
-Mcp-Session-Id: session_abc123_xyz789
 Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "MyMCPClient",
+      "version": "1.0.0"
+    }
+  }
+}
 ```
 
-### Session Lifecycle
-
-1. **Session Creation**: Automatic during initialization with `Mcp-Session-Id` header
-2. **Session Validation**: Required on all subsequent requests
-3. **Session Termination**: Explicit via DELETE request or timeout
-
-Based on our multi-tenant test suite (Category 08), sessions provide complete tenant isolation and security.
+For detailed examples of the operation phase, see the MCP Methods documentation.
 
 ## Next Steps
 
