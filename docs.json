@@ -22,7 +22,7 @@
       "dark": "#111827"
     }
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/kambrium_favicon.png",
   "seo": {
     "indexHiddenPages": false
   },
@@ -52,6 +52,7 @@
           "authentication/introduction",
           "authentication/management-api",
           "authentication/mcp-server",
+          "authentication/oauth-integration",
           "authentication/integrations"
         ]
       },
