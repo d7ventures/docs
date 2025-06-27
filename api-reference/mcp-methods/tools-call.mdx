@@ -78,15 +78,6 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     <ParamField path="arguments" type="object" required>
       Tool-specific arguments (must match tool's inputSchema)
     </ParamField>
-    
-    <ParamField path="_meta" type="object">
-      Optional metadata for tool execution
-      <Expandable title="_meta properties">
-        <ParamField path="progressToken" type="string">
-          Token for receiving progress notifications during execution
-        </ParamField>
-      </Expandable>
-    </ParamField>
   </Expandable>
 </ParamField>
 
@@ -179,8 +170,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
         "type": "text",
         "text": "Found 3 contacts matching your criteria:\n\n1. John Doe (john@example.com)\n2. Jane Smith (jane@example.com)\n3. John Johnson (jj@example.com)"
       }
-    ],
-    "isError": false
+    ]
   }
 }
 ```
@@ -203,24 +193,7 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
           "text": "{\"id\": 123, \"name\": \"John Doe\", \"email\": \"john@example.com\"}"
         }
       }
-    ],
-    "isError": false
-  }
-}
-```
-
-```json Tool Error Response (Success with isError: true)
-{
-  "jsonrpc": "2.0",
-  "id": "tool-call-789",
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "Error: Contact with ID 999 not found in Pipedrive"
-      }
-    ],
-    "isError": true
+    ]
   }
 }
 ```
@@ -249,11 +222,10 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
     "code": -32602,
     "message": "Invalid params",
     "data": {
-      "parameter": "limit",
-      "error": "Missing required parameter",
-      "expected": "integer",
-      "received": null,
-      "tool_name": "get_contacts"
+      "parameter": "arguments",
+      "error": "Arguments must be an object",
+      "expected": "object",
+      "received": "string"
     }
   }
 }
@@ -263,14 +235,16 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
 
 ## Tool Execution Results
 
-### **Success vs Error Responses**
+### **Response Structure**
 
-Our implementation distinguishes between two types of errors:
+Our implementation follows JSON-RPC 2.0 protocol with these patterns:
 
-1. **Protocol Errors**: JSON-RPC error responses (HTTP 200 with error field)
-2. **Tool Execution Errors**: Successful protocol with `isError: true` in result
+1. **Success Response**: Contains `result` field with tool output
+2. **Error Response**: Contains `error` field with error details
 
-### **Content Types**
+### **Content Format**
+
+Tool results contain a `content` array with items of different types:
 
 | Type       | Description                 | Fields                                               |
 | ---------- | --------------------------- | ---------------------------------------------------- |
@@ -282,23 +256,38 @@ Our implementation distinguishes between two types of errors:
 ### **Error Handling Strategy**
 
 ```javascript
-// Handle both protocol and tool execution errors
+// Handle tool call responses
 function handleToolResponse(response) {
   if (response.error) {
     // Protocol error (tool not found, invalid params, etc.)
     throw new ProtocolError(response.error);
   }
 
-  if (response.result.isError) {
-    // Tool execution error (business logic failure)
-    const errorText = response.result.content[0]?.text || "Unknown error";
-    throw new ToolExecutionError(errorText);
+  if (response.result && response.result.content) {
+    // Success case - tool executed
+    return response.result.content;
   }
 
-  // Success case
-  return response.result.content;
+  // Unexpected response structure
+  throw new Error("Unexpected response structure");
 }
 ```
+
+## Implementation Notes
+
+### **Response Validation**
+
+- **JSON-RPC compliance**: All responses follow JSON-RPC 2.0 format
+- **Content array**: Success responses contain `content` array
+- **Flexible structure**: Tests validate basic structure, not strict field requirements
+- **Error handling**: Protocol errors vs tool execution handled through different response patterns
+
+### **Tool Execution Environment**
+
+- Tools execute in controlled environment
+- Results formatted as structured content
+- Error conditions handled through JSON-RPC error responses
+- OAuth validation applied before tool execution
 
 ## OAuth and Permissions
 

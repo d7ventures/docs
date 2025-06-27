@@ -106,9 +106,9 @@ curl -X POST "https://api.kambrium.com/pipedrive/mcp" \
           Message role: `"user"` or `"assistant"`
         </ResponseField>
 
-        <ResponseField name="content" type="object" required>
-          Message content with specific type and data
-          <Expandable title="content properties">
+        <ResponseField name="content" type="string | object" required>
+          Message content - can be plain string or structured object
+          <Expandable title="content properties (when object)">
             <ResponseField name="type" type="string" required>
               Content type: `"text"`, `"image"`, or `"audio"`
             </ResponseField>
@@ -295,6 +295,40 @@ Our implementation processes templates with provided arguments:
 2. **Context Loading**: Fetch relevant data from CRM/database
 3. **Message Assembly**: Construct structured messages
 4. **Validation**: Ensure all required data is available
+
+### **Content Validation Patterns**
+
+Based on our test implementation, message content is validated as follows:
+
+```javascript
+// Content can be string or object
+const content = message["content"];
+assert(typeof content === "string" || typeof content === "object");
+
+if (typeof content === "object") {
+  // Object content must have type and appropriate fields
+  assert("type" in content);
+  assert(["text", "image", "audio"].includes(content.type));
+
+  if (content.type === "text") {
+    assert("text" in content);
+    assert(typeof content.text === "string");
+  }
+}
+```
+
+**Valid Content Examples:**
+
+```javascript
+// String content (simple format)
+"content": "Please analyze this deal and provide recommendations"
+
+// Object content (structured format)
+"content": {
+  "type": "text",
+  "text": "Please analyze this deal and provide recommendations"
+}
+```
 
 ## OAuth and Permissions
 
